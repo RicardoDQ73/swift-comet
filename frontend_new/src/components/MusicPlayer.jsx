@@ -9,6 +9,21 @@ const MusicPlayer = ({ song }) => {
     const [progress, setProgress] = useState(0);
     const [isFavorite, setIsFavorite] = useState(song.is_favorite);
 
+    // Construct full audio URL with backend base URL
+    const getAudioUrl = () => {
+        if (song.audio_url.startsWith('http')) {
+            return song.audio_url; // Already absolute
+        }
+        // Get backend base URL from api service
+        const hostname = window.location.hostname;
+        const backendUrl = hostname !== 'localhost'
+            ? `http://${hostname}:5000`
+            : 'http://localhost:5000';
+        return `${backendUrl}${song.audio_url}`;
+    };
+
+    const audioUrl = getAudioUrl();
+
     useEffect(() => {
         if (audioRef.current) { if (isPlaying) audioRef.current.play(); else audioRef.current.pause(); }
     }, [isPlaying]);
@@ -24,7 +39,7 @@ const MusicPlayer = ({ song }) => {
 
     const handleDownload = async () => {
         try {
-            const response = await fetch(song.audio_url);
+            const response = await fetch(audioUrl);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = `${song.title}.mp3`; document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
@@ -39,7 +54,7 @@ const MusicPlayer = ({ song }) => {
                 <div className="mt-8 text-center relative z-10"><h2 className="text-white text-2xl font-bold mb-2">{song.title}</h2><div className="flex flex-wrap justify-center gap-2">{song.tags && Object.values(song.tags).map((tag, idx) => (<span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-white/80 text-xs backdrop-blur-sm">{tag}</span>))}</div></div>
             </div>
             <div className="mb-8">
-                <audio ref={audioRef} src={song.audio_url} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} />
+                <audio ref={audioRef} src={audioUrl} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} />
                 <div className="w-full bg-slate-200 rounded-full h-2 mb-6 cursor-pointer" onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioRef.current.duration; }}>
                     <div className="bg-primary h-2 rounded-full transition-all duration-100 relative" style={{ width: `${progress}%` }}><div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-primary rounded-full shadow-md transform scale-0 hover:scale-100 transition-transform"></div></div>
                 </div>
