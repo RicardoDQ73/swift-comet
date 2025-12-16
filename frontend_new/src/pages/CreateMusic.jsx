@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wand2 } from 'lucide-react';
+import { Wand2, Upload } from 'lucide-react';
 import Button from '../components/ui/Button';
 import VoiceInput from '../components/VoiceInput';
 import HandsFreeAssistant from '../components/HandsFreeAssistant';
@@ -12,6 +12,19 @@ const CreateMusic = () => {
     const [loading, setLoading] = useState(false);
     const [showAssistant, setShowAssistant] = useState(false);
     const [selectedTags, setSelectedTags] = useState([]);
+
+    // Upload form state (for admin)
+    const [showUploadForm, setShowUploadForm] = useState(false);
+    const [uploadForm, setUploadForm] = useState({
+        title: '',
+        lyrics: '',
+        tags: '',
+        audioFile: null
+    });
+    const [uploading, setUploading] = useState(false);
+
+    // Check if user is admin
+    const userRole = localStorage.getItem('role');
 
     const quickIdeas = {
         instruments: [
@@ -67,6 +80,38 @@ const CreateMusic = () => {
     };
 
     const isSelected = (tag) => selectedTags.includes(tag);
+
+    const handleUpload = async (e) => {
+        e.preventDefault();
+        if (!uploadForm.audioFile) {
+            alert('Por favor selecciona un archivo de audio');
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('audio_file', uploadForm.audioFile);
+            formData.append('title', uploadForm.title);
+            formData.append('lyrics', uploadForm.lyrics);
+            formData.append('tags', uploadForm.tags);
+
+            const res = await api.post('/admin/upload-song', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            alert('¡Canción subida exitosamente!');
+            setUploadForm({ title: '', lyrics: '', tags: '', audioFile: null });
+            setShowUploadForm(false);
+            // Navegar al reproductor
+            window.location.href = `/player/${res.data.song.id}`;
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.error || 'Error al subir la canción');
+        } finally {
+            setUploading(false);
+        }
+    };
 
     return (
         <div className="pb-20">
@@ -150,6 +195,79 @@ const CreateMusic = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Admin Upload Button */}
+            {userRole === 'admin' && (
+                <div className="mb-6">
+                    <button
+                        onClick={() => setShowUploadForm(!showUploadForm)}
+                        className="w-full py-3 px-6 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md"
+                    >
+                        <Upload size={20} /> {showUploadForm ? 'Cancelar' : 'Subir Canción Manualmente (Admin)'}
+                    </button>
+                </div>
+            )}
+
+            {/* Upload Form (Admin only) */}
+            {showUploadForm && userRole === 'admin' && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl mb-6 shadow-sm">
+                    <h3 className="font-bold mb-4 text-amber-900">Subir Archivo MP3</h3>
+                    <form onSubmit={handleUpload} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Título</label>
+                            <input
+                                type="text"
+                                value={uploadForm.title}
+                                onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                                className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-amber-500"
+                                placeholder="Ej: Canción de los Números"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Archivo MP3/WAV</label>
+                            <input
+                                type="file"
+                                accept=".mp3,.wav"
+                                onChange={(e) => setUploadForm({ ...uploadForm, audioFile: e.target.files[0] })}
+                                className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-amber-500"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Letra (opcional)</label>
+                            <textarea
+                                value={uploadForm.lyrics}
+                                onChange={(e) => setUploadForm({ ...uploadForm, lyrics: e.target.value })}
+                                className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-amber-500 resize-none"
+                                rows="3"
+                                placeholder="Letra..."
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Tags (opcional)</label>
+                            <input
+                                type="text"
+                                value={uploadForm.tags}
+                                onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
+                                className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-amber-500"
+                                placeholder="Piano, Matemática, Alegre"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={uploading}
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 px-6 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {uploading ? 'Subiendo...' : 'Subir Canción'}
+                        </button>
+                    </form>
+                </div>
+            )}
 
             <Button fullWidth onClick={handleGenerate} isLoading={loading} disabled={!prompt} className="shadow-xl shadow-primary/20">Generar Música 🎵</Button>
         </div>
