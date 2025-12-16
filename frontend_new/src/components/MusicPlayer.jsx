@@ -5,9 +5,13 @@ import api from '../services/api';
 
 const MusicPlayer = ({ song }) => {
     const audioRef = useRef(null);
+    const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [isFavorite, setIsFavorite] = useState(song.is_favorite);
+    const [isDragging, setIsDragging] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
 
     // Construct full audio URL with backend base URL
     const getAudioUrl = () => {
@@ -28,7 +32,59 @@ const MusicPlayer = ({ song }) => {
         if (audioRef.current) { if (isPlaying) audioRef.current.play(); else audioRef.current.pause(); }
     }, [isPlaying]);
 
-    const handleTimeUpdate = () => { if (audioRef.current) setProgress((audioRef.current.currentTime / (audioRef.current.duration || 1)) * 100); };
+    const formatTime = (seconds) => {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current && !isDragging) {
+            const current = audioRef.current.currentTime;
+            const dur = audioRef.current.duration || 0;
+            setCurrentTime(current);
+            setDuration(dur);
+            setProgress((current / (dur || 1)) * 100);
+        }
+    };
+
+    const handleProgressClick = (e) => {
+        if (!audioRef.current || !progressBarRef.current) return;
+        const rect = progressBarRef.current.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        const newTime = percentage * audioRef.current.duration;
+        audioRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+        setProgress(percentage * 100);
+    };
+
+    const handleMouseDown = (e) => {
+        setIsDragging(true);
+        handleProgressClick(e);
+    };
+
+    const handleMouseMove = (e) => {
+        if (isDragging) {
+            handleProgressClick(e);
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+        }
+    }, [isDragging]);
 
     const toggleFavorite = async () => {
         try {
@@ -54,10 +110,36 @@ const MusicPlayer = ({ song }) => {
                 <div className="mt-8 text-center relative z-10"><h2 className="text-white text-2xl font-bold mb-2">{song.title}</h2><div className="flex flex-wrap justify-center gap-2">{song.tags && Object.values(song.tags).map((tag, idx) => (<span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-white/80 text-xs backdrop-blur-sm">{tag}</span>))}</div></div>
             </div>
             <div className="mb-8">
-                <audio ref={audioRef} src={audioUrl} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} />
-                <div className="w-full bg-slate-200 rounded-full h-2 mb-6 cursor-pointer" onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioRef.current.duration; }}>
-                    <div className="bg-primary h-2 rounded-full transition-all duration-100 relative" style={{ width: `${progress}%` }}><div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-primary rounded-full shadow-md transform scale-0 hover:scale-100 transition-transform"></div></div>
+                <audio
+                    ref={audioRef}
+                    src={audioUrl}
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={() => setIsPlaying(false)}
+                    onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                />
+
+                {/* Time labels */}
+                <div className="flex justify-between text-sm text-slate-500 mb-2 font-mono">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
                 </div>
+
+                {/* Progress bar */}
+                <div
+                    ref={progressBarRef}
+                    className="w-full bg-slate-200 rounded-full h-2 mb-6 cursor-pointer relative group"
+                    onMouseDown={handleMouseDown}
+                    onClick={handleProgressClick}
+                >
+                    <div
+                        className="bg-gradient-to-r from-primary to-indigo-600 h-2 rounded-full transition-all duration-100 relative"
+                        style={{ width: `${progress}%` }}
+                    >
+                        {/* Handle/Thumb */}
+                        <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-primary rounded-full shadow-lg transition-transform ${isDragging ? 'scale-125' : 'scale-0 group-hover:scale-100'} cursor-grab active:cursor-grabbing`}></div>
+                    </div>
+                </div>
+
                 <div className="flex items-center justify-between px-4">
                     <button onClick={toggleFavorite} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
                     <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform">{isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}</button>
