@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wand2, Mic } from 'lucide-react';
+import { Wand2 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import VoiceInput from '../components/VoiceInput';
 import HandsFreeAssistant from '../components/HandsFreeAssistant';
@@ -11,6 +11,7 @@ const CreateMusic = () => {
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
     const [showAssistant, setShowAssistant] = useState(false);
+    const [selectedTags, setSelectedTags] = useState([]);
 
     const quickIdeas = {
         instruments: [
@@ -51,7 +52,21 @@ const CreateMusic = () => {
         }
     };
 
-    const addTag = (tag) => setPrompt(prev => prev ? `${prev} ${tag}` : tag);
+    const toggleTag = (tag) => {
+        if (selectedTags.includes(tag)) {
+            // Deseleccionar: quitar del array y del prompt
+            const newTags = selectedTags.filter(t => t !== tag);
+            setSelectedTags(newTags);
+            setPrompt(newTags.join(' '));
+        } else {
+            // Seleccionar: agregar al array y al prompt
+            const newTags = [...selectedTags, tag];
+            setSelectedTags(newTags);
+            setPrompt(newTags.join(' '));
+        }
+    };
+
+    const isSelected = (tag) => selectedTags.includes(tag);
 
     return (
         <div className="pb-20">
@@ -74,8 +89,11 @@ const CreateMusic = () => {
                         {quickIdeas.instruments.map((item) => (
                             <button
                                 key={item.label}
-                                onClick={() => addTag(item.label)}
-                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                onClick={() => toggleTag(item.label)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-blue-600 text-white shadow-md scale-105'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    }`}
                             >
                                 {item.icon} {item.label}
                             </button>
@@ -92,8 +110,11 @@ const CreateMusic = () => {
                         {quickIdeas.activities.map((item) => (
                             <button
                                 key={item.label}
-                                onClick={() => addTag(item.label)}
-                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200"
+                                onClick={() => toggleTag(item.label)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-green-600 text-white shadow-md scale-105'
+                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    }`}
                             >
                                 {item.icon} {item.label}
                             </button>
@@ -110,8 +131,11 @@ const CreateMusic = () => {
                         {quickIdeas.rhythm.map((item) => (
                             <button
                                 key={item.label}
-                                onClick={() => addTag(item.label)}
-                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-purple-100 text-purple-700 hover:bg-purple-200"
+                                onClick={() => toggleTag(item.label)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-purple-600 text-white shadow-md scale-105'
+                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    }`}
                             >
                                 {item.icon} {item.label}
                             </button>
