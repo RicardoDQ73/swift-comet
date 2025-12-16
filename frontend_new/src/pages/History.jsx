@@ -40,7 +40,7 @@ const History = () => {
                     <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200"><Clock className="mx-auto text-slate-300 mb-2" size={32} /><p className="text-slate-500">No hay canciones recientes</p></div>
                 ) : (
                     songs.map((song) => (
-                        <Card key={song.id} className="flex flex-col gap-3 cursor-pointer hover:border-indigo-200 transition-colors" onClick={() => navigate(`/player/${song.id}`)}>
+                        <Card key={song.id} className="flex flex-col gap-3 cursor-pointer hover:border-indigo-200 transition-colors" onClick={() => navigate(`/player/${song.id}`, { state: { from: 'history' } })}>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 overflow-hidden">
                                     <div className="bg-indigo-100 p-2 rounded-full text-primary flex-shrink-0"><Play size={20} fill="currentColor" /></div>

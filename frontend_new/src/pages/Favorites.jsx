@@ -31,7 +31,7 @@ const Favorites = () => {
     }, [search, favorites]);
 
     const handlePlaySong = (songId) => {
-        navigate(`/player/${songId}`);
+        navigate(`/player/${songId}`, { state: { from: 'favorites' } });
     };
 
     const confirmDelete = (songId) => {
