@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Trash2, Edit2, Activity, Save, X, Upload, Music } from 'lucide-react';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 
 const AdminDashboard = () => {
@@ -17,6 +18,10 @@ const AdminDashboard = () => {
         audioFile: null
     });
     const [uploading, setUploading] = useState(false);
+
+    // Modal state
+    const [modalOpen, setModalOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -40,11 +45,17 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('¿Seguro que deseas eliminar este usuario?')) return;
+    const confirmDeleteUser = (id) => {
+        setUserToDelete(id);
+        setModalOpen(true);
+    };
+
+    const handleDelete = async () => {
+        if (!userToDelete) return;
         try {
-            await api.delete(`/admin/users/${id}`);
-            setUsers(users.filter(u => u.id !== id));
+            await api.delete(`/admin/users/${userToDelete}`);
+            setUsers(users.filter(u => u.id !== userToDelete));
+            setUserToDelete(null);
         } catch (error) {
             alert('Error al eliminar usuario');
         }
@@ -98,6 +109,17 @@ const AdminDashboard = () => {
 
     return (
         <div className="pb-20">
+            <ConfirmModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                onConfirm={handleDelete}
+                title="¿Eliminar usuario?"
+                message="Este usuario será eliminado permanentemente del sistema."
+                confirmText="Eliminar"
+                cancelText="Cancelar"
+                variant="danger"
+            />
+
             <div className="mb-6 flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-slate-900">Panel de Administración 🛡️</h1>
                 <div className="flex gap-2">
@@ -171,7 +193,7 @@ const AdminDashboard = () => {
                                             </div>
                                             <div className="flex gap-2">
                                                 <button onClick={() => setEditingUser(user)} className="p-2 hover:bg-slate-100 rounded-full text-blue-500"><Edit2 size={18} /></button>
-                                                <button onClick={() => handleDelete(user.id)} className="p-2 hover:bg-slate-100 rounded-full text-red-500"><Trash2 size={18} /></button>
+                                                <button onClick={() => confirmDeleteUser(user.id)} className="p-2 hover:bg-slate-100 rounded-full text-red-500"><Trash2 size={18} /></button>
                                             </div>
                                         </>
                                     )}
