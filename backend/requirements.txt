@@ -1,0 +1,10 @@
+flask
+flask-sqlalchemy
+flask-cors
+flask-bcrypt
+flask-jwt-extended
+python-dotenv
+apscheduler
+requests
+psycopg2-binary
+edge-tts
