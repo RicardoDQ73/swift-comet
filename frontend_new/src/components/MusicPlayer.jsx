@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Download, Heart } from 'lucide-react';
+import { Play, Pause, Download, Heart, SkipBack, SkipForward } from 'lucide-react';
 import Card from './ui/Card';
 import ConfirmModal from './ui/ConfirmModal';
 import api from '../services/api';
 
-const MusicPlayer = ({ song }) => {
+const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
     const audioRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -33,6 +33,12 @@ const MusicPlayer = ({ song }) => {
     useEffect(() => {
         if (audioRef.current) { if (isPlaying) audioRef.current.play(); else audioRef.current.pause(); }
     }, [isPlaying]);
+
+    // Reset playing state when song changes
+    useEffect(() => {
+        setIsPlaying(true);
+        setIsFavorite(song.is_favorite);
+    }, [song]);
 
     const formatTime = (seconds) => {
         if (!seconds || isNaN(seconds)) return '0:00';
@@ -121,6 +127,21 @@ const MusicPlayer = ({ song }) => {
         } catch (error) { console.error("Error downloading", error); }
     };
 
+    const handlePrevious = () => {
+        if (onNavigate && currentIndex > 0) {
+            onNavigate(currentIndex - 1);
+        }
+    };
+
+    const handleNext = () => {
+        if (onNavigate && currentIndex < playlist.length - 1) {
+            onNavigate(currentIndex + 1);
+        }
+    };
+
+    const hasPrevious = currentIndex > 0;
+    const hasNext = currentIndex < playlist.length - 1;
+
     return (
         <div className="flex flex-col h-full">
             <ConfirmModal
@@ -144,8 +165,12 @@ const MusicPlayer = ({ song }) => {
                     ref={audioRef}
                     src={audioUrl}
                     onTimeUpdate={handleTimeUpdate}
-                    onEnded={() => setIsPlaying(false)}
+                    onEnded={() => {
+                        setIsPlaying(false);
+                        if (hasNext) handleNext(); // Auto-advance
+                    }}
                     onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                    autoPlay
                 />
 
                 {/* Time labels */}
@@ -172,7 +197,29 @@ const MusicPlayer = ({ song }) => {
 
                 <div className="flex items-center justify-between px-4">
                     <button onClick={handleFavoriteClick} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
-                    <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform">{isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}</button>
+
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handlePrevious}
+                            disabled={!hasPrevious}
+                            className={`p-2 rounded-full transition-colors ${hasPrevious ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
+                        >
+                            <SkipBack size={28} />
+                        </button>
+
+                        <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform">
+                            {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                        </button>
+
+                        <button
+                            onClick={handleNext}
+                            disabled={!hasNext}
+                            className={`p-2 rounded-full transition-colors ${hasNext ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
+                        >
+                            <SkipForward size={28} />
+                        </button>
+                    </div>
+
                     <button onClick={handleDownload} className="p-3 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-full transition-colors"><Download size={24} /></button>
                 </div>
             </div>
