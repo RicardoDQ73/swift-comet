@@ -76,7 +76,14 @@ const CreateMusic = () => {
                 <VoiceInput onResult={(text) => setPrompt(text)} placeholder="Presiona y di: 'Una canción alegre de piano...'" />
                 <div className="w-full"><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="O escribe aquí tu idea..." className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700" rows="3" /></div>
             </div>
-            <div className="mb-8 text-center"><button onClick={() => setShowAssistant(true)} className="text-primary font-medium text-sm flex items-center justify-center gap-2 mx-auto hover:underline"><Wand2 size={16} /> Usar Asistente de Voz Interactivo</button></div>
+            <div className="mb-8 text-center">
+                <button
+                    onClick={() => setShowAssistant(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm rounded-xl flex items-center justify-center gap-2 mx-auto hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                    <Wand2 size={20} /> Usar Asistente de Voz Interactivo
+                </button>
+            </div>
 
             {/* Categorías de Ideas Rápidas */}
             <div className="mb-8 space-y-6">
@@ -91,8 +98,8 @@ const CreateMusic = () => {
                                 key={item.label}
                                 onClick={() => toggleTag(item.label)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-blue-600 text-white shadow-md scale-105'
-                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    ? 'bg-blue-600 text-white shadow-md scale-105'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                     }`}
                             >
                                 {item.icon} {item.label}
@@ -112,8 +119,8 @@ const CreateMusic = () => {
                                 key={item.label}
                                 onClick={() => toggleTag(item.label)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-green-600 text-white shadow-md scale-105'
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    ? 'bg-green-600 text-white shadow-md scale-105'
+                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
                                     }`}
                             >
                                 {item.icon} {item.label}
@@ -133,8 +140,8 @@ const CreateMusic = () => {
                                 key={item.label}
                                 onClick={() => toggleTag(item.label)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-purple-600 text-white shadow-md scale-105'
-                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    ? 'bg-purple-600 text-white shadow-md scale-105'
+                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                                     }`}
                             >
                                 {item.icon} {item.label}
