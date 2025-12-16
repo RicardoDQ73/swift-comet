@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Download, Heart } from 'lucide-react';
 import Card from './ui/Card';
+import ConfirmModal from './ui/ConfirmModal';
 import api from '../services/api';
 
 const MusicPlayer = ({ song }) => {
@@ -12,6 +13,7 @@ const MusicPlayer = ({ song }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     // Construct full audio URL with backend base URL
     const getAudioUrl = () => {
@@ -86,11 +88,28 @@ const MusicPlayer = ({ song }) => {
         }
     }, [isDragging]);
 
+    const handleFavoriteClick = () => {
+        if (isFavorite) {
+            // If removing from favorites, show confirmation
+            setShowConfirmModal(true);
+        } else {
+            // If adding to favorites, do it directly
+            toggleFavorite();
+        }
+    };
+
     const toggleFavorite = async () => {
         try {
-            if (isFavorite) await api.delete(`/music/favorites/${song.id}`); else await api.post('/music/favorites', { song_id: song.id });
+            if (isFavorite) {
+                await api.delete(`/music/favorites/${song.id}`);
+            } else {
+                await api.post('/music/favorites', { song_id: song.id });
+            }
             setIsFavorite(!isFavorite);
-        } catch (error) { console.error("Error toggling favorite", error); }
+        } catch (error) {
+            console.error("Error toggling favorite", error);
+            alert("Error al actualizar favoritos");
+        }
     };
 
     const handleDownload = async () => {
@@ -104,6 +123,17 @@ const MusicPlayer = ({ song }) => {
 
     return (
         <div className="flex flex-col h-full">
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={toggleFavorite}
+                title="¿Quitar de favoritos?"
+                message="Esta canción se quitará de tu lista de favoritos."
+                confirmText="Quitar"
+                cancelText="Cancelar"
+                variant="danger"
+            />
+
             <div className="bg-indigo-900 rounded-3xl p-8 mb-6 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden shadow-xl shadow-indigo-500/20">
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-400 via-indigo-900 to-indigo-950"></div>
                 <div className={`audio-wave ${isPlaying ? 'opacity-100' : 'opacity-30'}`}>{[...Array(10)].map((_, i) => (<div key={i} className="audio-bar" style={{ animationDelay: `${i * 0.1}s` }}></div>))}</div>
@@ -141,7 +171,7 @@ const MusicPlayer = ({ song }) => {
                 </div>
 
                 <div className="flex items-center justify-between px-4">
-                    <button onClick={toggleFavorite} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
+                    <button onClick={handleFavoriteClick} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
                     <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform">{isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}</button>
                     <button onClick={handleDownload} className="p-3 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-full transition-colors"><Download size={24} /></button>
                 </div>
