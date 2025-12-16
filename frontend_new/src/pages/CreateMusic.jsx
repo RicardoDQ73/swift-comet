@@ -12,21 +12,35 @@ const CreateMusic = () => {
     const [loading, setLoading] = useState(false);
     const [showAssistant, setShowAssistant] = useState(false);
 
-    const tags = [
-        { label: 'Alegre', type: 'mood' },
-        { label: 'Triste', type: 'mood' },
-        { label: 'Piano', type: 'instrument' },
-        { label: 'Guitarra', type: 'instrument' },
-        { label: 'Matemática', type: 'course' },
-        { label: 'Lento', type: 'rhythm' },
-    ];
+    const quickIdeas = {
+        instruments: [
+            { label: 'Piano', icon: '🎹' },
+            { label: 'Guitarra', icon: '🎸' },
+            { label: 'Tambor', icon: '🥁' },
+            { label: 'Flauta', icon: '🎺' },
+            { label: 'Violín', icon: '🎻' },
+        ],
+        activities: [
+            { label: 'Matemática', icon: '➕' },
+            { label: 'Comunicación', icon: '💬' },
+            { label: 'Ciencia', icon: '🔬' },
+            { label: 'Arte', icon: '🎨' },
+            { label: 'Educación Física', icon: '⚽' },
+        ],
+        rhythm: [
+            { label: 'Rápido', icon: '⚡' },
+            { label: 'Lento', icon: '🐌' },
+            { label: 'Moderado', icon: '🎵' },
+            { label: 'Alegre', icon: '😊' },
+            { label: 'Tranquilo', icon: '😌' },
+        ],
+    };
 
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
         setLoading(true);
         try {
             const response = await api.post('/music/generate', { prompt });
-            // navigate(`/player/${response.data.song.id}`);
             window.location.href = `/player/${response.data.song.id}`;
         } catch (error) {
             console.error("Error generando:", error);
@@ -48,7 +62,64 @@ const CreateMusic = () => {
                 <div className="w-full"><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="O escribe aquí tu idea..." className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700" rows="3" /></div>
             </div>
             <div className="mb-8 text-center"><button onClick={() => setShowAssistant(true)} className="text-primary font-medium text-sm flex items-center justify-center gap-2 mx-auto hover:underline"><Wand2 size={16} /> Usar Asistente de Voz Interactivo</button></div>
-            <div className="mb-8"><p className="text-sm font-bold text-slate-700 mb-3">Ideas rápidas:</p><div className="flex flex-wrap gap-2">{tags.map((tag) => (<button key={tag.label} onClick={() => addTag(tag.label)} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${tag.type === 'mood' ? 'bg-yellow-100 text-yellow-700' : ''} ${tag.type === 'instrument' ? 'bg-blue-100 text-blue-700' : ''} ${tag.type === 'course' ? 'bg-green-100 text-green-700' : ''} ${tag.type === 'rhythm' ? 'bg-purple-100 text-purple-700' : ''}`}>{tag.label}</button>))}</div></div>
+
+            {/* Categorías de Ideas Rápidas */}
+            <div className="mb-8 space-y-6">
+                {/* Instrumentos */}
+                <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                        <span>🎼</span> Instrumentos
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                        {quickIdeas.instruments.map((item) => (
+                            <button
+                                key={item.label}
+                                onClick={() => addTag(item.label)}
+                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            >
+                                {item.icon} {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Actividades */}
+                <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                        <span>📚</span> Actividad a Realizar
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                        {quickIdeas.activities.map((item) => (
+                            <button
+                                key={item.label}
+                                onClick={() => addTag(item.label)}
+                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200"
+                            >
+                                {item.icon} {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Ritmo */}
+                <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                        <span>🎶</span> Ritmo y Estilo
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                        {quickIdeas.rhythm.map((item) => (
+                            <button
+                                key={item.label}
+                                onClick={() => addTag(item.label)}
+                                className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-purple-100 text-purple-700 hover:bg-purple-200"
+                            >
+                                {item.icon} {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <Button fullWidth onClick={handleGenerate} isLoading={loading} disabled={!prompt} className="shadow-xl shadow-primary/20">Generar Música 🎵</Button>
         </div>
     );
