@@ -22,6 +22,7 @@ const Login = () => {
             const response = await api.post('/auth/login', formData);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
+            localStorage.setItem('role', response.data.user.role); // Save role separately
 
             // Forzamos recarga para evitar pantalla blanca y asegurar token
             window.location.href = '/home';
