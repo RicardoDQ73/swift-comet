@@ -10,38 +10,77 @@ const PlayerPage = () => {
     const location = useLocation();
     const [song, setSong] = useState(null);
     const [playlist, setPlaylist] = useState([]);
-    setCurrentIndex(index);
-}
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchSong = async () => {
+            try {
+                const sourceContext = location.state?.from;
+                let found = null;
+                let sourcePlaylist = [];
+
+                if (sourceContext === 'favorites') {
+                    // Force load from favorites FIRST
+                    const favRes = await api.get('/music/favorites');
+                    found = favRes.data.find(s => s.id === parseInt(id));
+                    sourcePlaylist = favRes.data;
+                } else if (sourceContext === 'history') {
+                    // Force load from history FIRST
+                    const res = await api.get('/music/history');
+                    found = res.data.find(s => s.id === parseInt(id));
+                    sourcePlaylist = res.data;
+                } else {
+                    // Fallback to auto-detection (original logic)
+                    // Try history first
+                    const res = await api.get('/music/history');
+                    found = res.data.find(s => s.id === parseInt(id));
+                    sourcePlaylist = res.data;
+
+                    if (!found) {
+                        const favRes = await api.get('/music/favorites');
+                        found = favRes.data.find(s => s.id === parseInt(id));
+                        sourcePlaylist = favRes.data;
+                    }
+                }
+
+                if (found) {
+                    setSong(found);
+                    setPlaylist(sourcePlaylist);
+                    const index = sourcePlaylist.findIndex(s => s.id === parseInt(id));
+                    setCurrentIndex(index);
+                }
             } catch (error) { console.error("Error loading song", error); } finally { setLoading(false); }
         };
-fetchSong();
-    }, [id]);
+        fetchSong();
+    }, [id, location.state]);
 
-const handleNavigate = (newIndex) => {
-    if (newIndex >= 0 && newIndex < playlist.length) {
-        const newSong = playlist[newIndex];
-        navigate(`/player/${newSong.id}`);
-    }
-};
+    const handleNavigate = (newIndex) => {
+        if (newIndex >= 0 && newIndex < playlist.length) {
+            const newSong = playlist[newIndex];
+            // Preserve the 'from' state during navigation
+            navigate(`/player/${newSong.id}`, { state: location.state });
+        }
+    };
 
-if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>;
-if (!song) return <div className="p-6 text-center"><p className="text-slate-500">Canción no encontrada</p><button onClick={() => navigate(-1)} className="text-primary mt-4">Volver</button></div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+    if (!song) return <div className="p-6 text-center"><p className="text-slate-500">Canción no encontrada</p><button onClick={() => navigate(-1)} className="text-primary mt-4">Volver</button></div>;
 
-return (
-    <div className="pb-20 min-h-screen bg-white">
-        <div className="p-4 flex items-center gap-4 sticky top-0 bg-white z-10">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full"><ArrowLeft size={24} className="text-slate-700" /></button>
-            <h1 className="text-lg font-bold text-slate-900 truncate">Reproduciendo</h1>
+    return (
+        <div className="pb-20 min-h-screen bg-white">
+            <div className="p-4 flex items-center gap-4 sticky top-0 bg-white z-10">
+                <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full"><ArrowLeft size={24} className="text-slate-700" /></button>
+                <h1 className="text-lg font-bold text-slate-900 truncate">Reproduciendo</h1>
+            </div>
+            <div className="px-6">
+                <MusicPlayer
+                    song={song}
+                    playlist={playlist}
+                    currentIndex={currentIndex}
+                    onNavigate={handleNavigate}
+                />
+            </div>
         </div>
-        <div className="px-6">
-            <MusicPlayer
-                song={song}
-                playlist={playlist}
-                currentIndex={currentIndex}
-                onNavigate={handleNavigate}
-            />
-        </div>
-    </div>
-);
+    );
 };
 export default PlayerPage;
