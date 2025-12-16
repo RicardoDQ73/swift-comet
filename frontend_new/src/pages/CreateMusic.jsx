@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wand2, Upload } from 'lucide-react';
+import { Wand2, Upload, ChevronDown } from 'lucide-react';
 import Button from '../components/ui/Button';
 import VoiceInput from '../components/VoiceInput';
 import HandsFreeAssistant from '../components/HandsFreeAssistant';
@@ -22,6 +22,9 @@ const CreateMusic = () => {
         audioFile: null
     });
     const [uploading, setUploading] = useState(false);
+
+    // Collapsible sections state
+    const [showQuickIdeas, setShowQuickIdeas] = useState(false);
 
     // Check if user is admin
     const userRole = localStorage.getItem('role');
@@ -130,71 +133,84 @@ const CreateMusic = () => {
                 </button>
             </div>
 
-            {/* Categorías de Ideas Rápidas */}
-            <div className="mb-8 space-y-6">
-                {/* Instrumentos */}
-                <div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <span>🎼</span> Instrumentos
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                        {quickIdeas.instruments.map((item) => (
-                            <button
-                                key={item.label}
-                                onClick={() => toggleTag(item.label)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                    ? 'bg-blue-600 text-white shadow-md scale-105'
-                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                    }`}
-                            >
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Actividades */}
-                <div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <span>📚</span> Actividad a Realizar
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                        {quickIdeas.activities.map((item) => (
-                            <button
-                                key={item.label}
-                                onClick={() => toggleTag(item.label)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                    ? 'bg-green-600 text-white shadow-md scale-105'
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    }`}
-                            >
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Ritmo */}
-                <div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <span>🎶</span> Ritmo y Estilo
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                        {quickIdeas.rhythm.map((item) => (
-                            <button
-                                key={item.label}
-                                onClick={() => toggleTag(item.label)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                    ? 'bg-purple-600 text-white shadow-md scale-105'
-                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                                    }`}
-                            >
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            {/* Collapsible Quick Ideas */}
+            <div className="mb-6">
+                <button
+                    onClick={() => setShowQuickIdeas(!showQuickIdeas)}
+                    className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-between transition-colors"
+                >
+                    <span className="font-medium text-slate-700">💡 Ideas Rápidas</span>
+                    <ChevronDown size={20} className={`transition-transform ${showQuickIdeas ? 'rotate-180' : ''}`} />
+                </button>
             </div>
+
+            {/* Categorías de Ideas Rápidas */}
+            {showQuickIdeas && (
+                <div className="mb-8 space-y-6 animate-in fade-in duration-200">
+                    {/* Instrumentos */}
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <span>🎼</span> Instrumentos
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {quickIdeas.instruments.map((item) => (
+                                <button
+                                    key={item.label}
+                                    onClick={() => toggleTag(item.label)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-blue-600 text-white shadow-md scale-105'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                        }`}
+                                >
+                                    {item.icon} {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Actividades */}
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <span>📚</span> Actividad a Realizar
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {quickIdeas.activities.map((item) => (
+                                <button
+                                    key={item.label}
+                                    onClick={() => toggleTag(item.label)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-green-600 text-white shadow-md scale-105'
+                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        }`}
+                                >
+                                    {item.icon} {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Ritmo */}
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <span>🎶</span> Ritmo y Estilo
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {quickIdeas.rhythm.map((item) => (
+                                <button
+                                    key={item.label}
+                                    onClick={() => toggleTag(item.label)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
+                                        ? 'bg-purple-600 text-white shadow-md scale-105'
+                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                        }`}
+                                >
+                                    {item.icon} {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Admin Upload Button */}
             {userRole === 'admin' && (
