@@ -134,13 +134,18 @@ const CreateMusic = () => {
             </div>
 
             {/* Collapsible Quick Ideas */}
-            <div className="mb-6">
-                <button
+            <div className="mb-4">
+                <button 
                     onClick={() => setShowQuickIdeas(!showQuickIdeas)}
-                    className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-between transition-colors"
+                    className="w-full py-4 px-5 bg-white border-2 border-indigo-200 hover:border-indigo-300 rounded-2xl flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
                 >
-                    <span className="font-medium text-slate-700">💡 Ideas Rápidas</span>
-                    <ChevronDown size={20} className={`transition-transform ${showQuickIdeas ? 'rotate-180' : ''}`} />
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                            <span className="text-xl">💡</span>
+                        </div>
+                        <span className="font-semibold text-slate-800">Ideas Rápidas</span>
+                    </div>
+                    <ChevronDown size={22} className={`transition-transform text-indigo-600 ${showQuickIdeas ? 'rotate-180' : ''}`} />
                 </button>
             </div>
 
@@ -214,12 +219,18 @@ const CreateMusic = () => {
 
             {/* Admin Upload Button */}
             {userRole === 'admin' && (
-                <div className="mb-6">
-                    <button
+                <div className="mb-4">
+                    <button 
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        className="w-full py-3 px-6 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md"
+                        className="w-full py-4 px-5 bg-white border-2 border-amber-200 hover:border-amber-300 rounded-2xl flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
                     >
-                        <Upload size={20} /> {showUploadForm ? 'Cancelar' : 'Subir Canción Manualmente (Admin)'}
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                                <Upload size={20} className="text-amber-700" />
+                            </div>
+                            <span className="font-semibold text-slate-800">Subir Canción (Admin)</span>
+                        </div>
+                        <ChevronDown size={22} className={`transition-transform text-amber-600 ${showUploadForm ? 'rotate-180' : ''}`} />
                     </button>
                 </div>
             )}
