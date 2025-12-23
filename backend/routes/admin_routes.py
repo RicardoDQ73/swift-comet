@@ -28,7 +28,9 @@ def list_users():
     if not check_admin():
         return jsonify({'error': 'Acceso denegado'}), 403
 
-    users = User.query.all()
+    current_user_id = get_jwt_identity()
+    # Excluir al propio administrador de la lista
+    users = User.query.filter(User.id != current_user_id).all()
     results = []
     for u in users:
         results.append({
@@ -107,8 +109,12 @@ def monitor_activity():
 @jwt_required()
 def upload_song():
     """Subir canción manualmente (solo admin)"""
+    print(f"DEBUG: Entering upload_song. User ID: {get_jwt_identity()}")
     if not check_admin():
+        print("DEBUG: check_admin failed")
         return jsonify({'error': 'Acceso denegado'}), 403
+    
+    print("DEBUG: Files received:", request.files)
     
     # Verificar que se envió un archivo
     if 'audio_file' not in request.files:
@@ -151,7 +157,8 @@ def upload_song():
     
     new_song = Song(
         title=title,
-        audio_url=audio_url,
+        prompt="Subida manual (Admin)",
+        audio_filename=unique_filename,
         lyrics=lyrics,
         tags=tags_dict,
         user_id=user_id
@@ -170,3 +177,36 @@ def upload_song():
             'audio_url': audio_url
         }
     }), 201
+
+@admin_bp.route('/songs/<int:song_id>', methods=['DELETE'])
+@jwt_required()
+def delete_song(song_id):
+    """Eliminar canción (Admin)"""
+    if not check_admin():
+        return jsonify({'error': 'Acceso denegado'}), 403
+    
+    song = Song.query.get(song_id)
+    if not song:
+        return jsonify({'error': 'Canción no encontrada'}), 404
+
+    # Eliminar favoritos asociados para mantener integridad referencial
+    from models import Favorite
+    Favorite.query.filter_by(song_id=song_id).delete()
+
+    # Eliminar archivo físico
+    from flask import current_app
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    file_path = os.path.join(upload_folder, song.audio_filename)
+    
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        audit_logger.error(f"Error al eliminar archivo físico: {e}")
+
+    # Eliminar de BD
+    db.session.delete(song)
+    db.session.commit()
+    
+    audit_logger.warning(f"ADMIN eliminó canción ID {song_id}")
+    return jsonify({'message': 'Canción eliminada'}), 200

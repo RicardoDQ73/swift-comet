@@ -56,7 +56,20 @@ const PlayerPage = () => {
     }, [id, location.state]);
 
     const handleNavigate = (newIndex) => {
-        if (newIndex >= 0 && newIndex < playlist.length) {
+        const isShuffle = location.state?.shuffle;
+
+        if (isShuffle) {
+            // Infinite Shuffle Logic: Pick any random song from playlist
+            if (playlist.length > 0) {
+                let randomIndex = Math.floor(Math.random() * playlist.length);
+                // Try to avoid repeating the same song immediately if playlist > 1
+                if (playlist.length > 1 && playlist[randomIndex].id === song.id) {
+                    randomIndex = (randomIndex + 1) % playlist.length;
+                }
+                const newSong = playlist[randomIndex];
+                navigate(`/player/${newSong.id}`, { state: { ...location.state, shuffle: true } });
+            }
+        } else if (newIndex >= 0 && newIndex < playlist.length) {
             const newSong = playlist[newIndex];
             // Preserve the 'from' state during navigation
             navigate(`/player/${newSong.id}`, { state: location.state });
@@ -78,6 +91,7 @@ const PlayerPage = () => {
                     playlist={playlist}
                     currentIndex={currentIndex}
                     onNavigate={handleNavigate}
+                    isShuffle={location.state?.shuffle}
                 />
             </div>
         </div>

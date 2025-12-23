@@ -1,10 +1,12 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Download, Heart, SkipBack, SkipForward } from 'lucide-react';
 import Card from './ui/Card';
 import ConfirmModal from './ui/ConfirmModal';
+import AudioRecorder from './AudioRecorder';
 import api from '../services/api';
 
-const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
+const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false }) => {
     const audioRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -17,6 +19,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
 
     // Construct full audio URL with backend base URL
     const getAudioUrl = () => {
+        if (!song || !song.audio_url) return '';
         if (song.audio_url.startsWith('http')) {
             return song.audio_url; // Already absolute
         }
@@ -31,7 +34,13 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
     const audioUrl = getAudioUrl();
 
     useEffect(() => {
-        if (audioRef.current) { if (isPlaying) audioRef.current.play(); else audioRef.current.pause(); }
+        if (audioRef.current) {
+            if (isPlaying) {
+                audioRef.current.play().catch(e => console.error("Playback error", e));
+            } else {
+                audioRef.current.pause();
+            }
+        }
     }, [isPlaying]);
 
     // Reset playing state when song changes
@@ -123,7 +132,13 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
             const response = await fetch(audioUrl);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `${song.title}.mp3`; document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${song.title}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         } catch (error) { console.error("Error downloading", error); }
     };
 
@@ -134,13 +149,13 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
     };
 
     const handleNext = () => {
-        if (onNavigate && currentIndex < playlist.length - 1) {
+        if (onNavigate && (isShuffle || currentIndex < playlist.length - 1)) {
             onNavigate(currentIndex + 1);
         }
     };
 
     const hasPrevious = currentIndex > 0;
-    const hasNext = currentIndex < playlist.length - 1;
+    const hasNext = isShuffle || currentIndex < playlist.length - 1;
 
     return (
         <div className="flex flex-col h-full">
@@ -164,12 +179,13 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
                 <audio
                     ref={audioRef}
                     src={audioUrl}
+                    crossOrigin="anonymous"
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={() => {
                         setIsPlaying(false);
                         if (hasNext) handleNext(); // Auto-advance
                     }}
-                    onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                    onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
                     autoPlay
                 />
 
@@ -223,8 +239,13 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate }) => {
                     <button onClick={handleDownload} className="p-3 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-full transition-colors"><Download size={24} /></button>
                 </div>
             </div>
+
+            <div className="mb-6">
+                <AudioRecorder audioRef={audioRef} />
+            </div>
+
             {song.lyrics && <Card className="flex-1 overflow-y-auto mb-6 bg-slate-50 border-none"><h3 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">Letra</h3><p className="text-slate-700 whitespace-pre-line leading-relaxed text-lg font-medium">{song.lyrics}</p></Card>}
-        </div>
+        </div >
     );
 };
 export default MusicPlayer;

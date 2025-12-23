@@ -5,6 +5,7 @@ flask-bcrypt
 flask-jwt-extended
 python-dotenv
 apscheduler
+replicate
 requests
 psycopg2-binary
 edge-tts

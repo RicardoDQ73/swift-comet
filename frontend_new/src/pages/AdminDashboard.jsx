@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Trash2, Edit2, Activity, Save, X, Upload, Music } from 'lucide-react';
+import { Users, Trash2, Edit2, Activity, Save, X } from 'lucide-react';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 
@@ -8,20 +8,12 @@ const AdminDashboard = () => {
     const [activity, setActivity] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('users'); // 'users', 'monitor', or 'upload'
-
-    // Upload form state
-    const [uploadForm, setUploadForm] = useState({
-        title: '',
-        lyrics: '',
-        tags: '',
-        audioFile: null
-    });
-    const [uploading, setUploading] = useState(false);
+    const [activeTab, setActiveTab] = useState('users'); // 'users', 'monitor'
 
     // Modal state
     const [modalOpen, setModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
+    const [songToDelete, setSongToDelete] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -47,18 +39,34 @@ const AdminDashboard = () => {
 
     const confirmDeleteUser = (id) => {
         setUserToDelete(id);
+        setSongToDelete(null);
+        setModalOpen(true);
+    };
+
+    const confirmDeleteSong = (id) => {
+        setSongToDelete(id);
+        setUserToDelete(null);
         setModalOpen(true);
     };
 
     const handleDelete = async () => {
-        if (!userToDelete) return;
         try {
-            await api.delete(`/admin/users/${userToDelete}`);
-            setUsers(users.filter(u => u.id !== userToDelete));
-            setUserToDelete(null);
+            if (userToDelete) {
+                await api.delete(`/admin/users/${userToDelete}`);
+                setUsers(users.filter(u => u.id !== userToDelete));
+                setUserToDelete(null);
+                alert("Usuario eliminado correctamente");
+            } else if (songToDelete) {
+                await api.delete(`/admin/songs/${songToDelete}`);
+                setActivity(activity.filter(s => s.id !== songToDelete));
+                setSongToDelete(null);
+                alert("Canción eliminada correctamente");
+            }
         } catch (error) {
-            alert('Error al eliminar usuario');
+            console.error(error);
+            alert('Error al eliminar');
         }
+        setModalOpen(false);
     };
 
     const handleUpdate = async (e) => {
@@ -71,39 +79,9 @@ const AdminDashboard = () => {
             });
             setUsers(users.map(u => (u.id === editingUser.id ? editingUser : u)));
             setEditingUser(null);
+            alert("Usuario actualizado correctamente");
         } catch (error) {
             alert('Error al actualizar usuario');
-        }
-    };
-
-    const handleUpload = async (e) => {
-        e.preventDefault();
-        if (!uploadForm.audioFile) {
-            alert('Por favor selecciona un archivo de audio');
-            return;
-        }
-
-        setUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append('audio_file', uploadForm.audioFile);
-            formData.append('title', uploadForm.title);
-            formData.append('lyrics', uploadForm.lyrics);
-            formData.append('tags', uploadForm.tags);
-
-            const res = await api.post('/admin/upload-song', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            alert('¡Canción subida exitosamente!');
-            setUploadForm({ title: '', lyrics: '', tags: '', audioFile: null });
-            // Reset file input
-            document.getElementById('audioFileInput').value = '';
-        } catch (error) {
-            console.error(error);
-            alert(error.response?.data?.error || 'Error al subir la canción');
-        } finally {
-            setUploading(false);
         }
     };
 
@@ -113,8 +91,10 @@ const AdminDashboard = () => {
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
                 onConfirm={handleDelete}
-                title="¿Eliminar usuario?"
-                message="Este usuario será eliminado permanentemente del sistema."
+                title={userToDelete ? "¿Eliminar usuario?" : "¿Eliminar canción?"}
+                message={userToDelete
+                    ? "Este usuario será eliminado permanentemente del sistema."
+                    : "Esta canción se eliminará permanentemente del historial para todos."}
                 confirmText="Eliminar"
                 cancelText="Cancelar"
                 variant="danger"
@@ -134,12 +114,6 @@ const AdminDashboard = () => {
                         className={`p-2 rounded-xl ${activeTab === 'monitor' ? 'bg-primary text-white' : 'bg-white text-slate-600'}`}
                     >
                         <Activity size={20} />
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('upload')}
-                        className={`p-2 rounded-xl ${activeTab === 'upload' ? 'bg-primary text-white' : 'bg-white text-slate-600'}`}
-                    >
-                        <Music size={20} />
                     </button>
                 </div>
             </div>
@@ -208,74 +182,22 @@ const AdminDashboard = () => {
                             {activity.length === 0 ? <p>No hay actividad reciente.</p> : (
                                 <ul className="space-y-3">
                                     {activity.map(item => (
-                                        <li key={item.id} className="border-b pb-2">
-                                            <div className="font-medium text-primary">{item.title}</div>
-                                            <div className="text-sm text-slate-500">Por: {item.author} | {new Date(item.created_at).toLocaleString()}</div>
+                                        <li key={item.id} className="border-b pb-2 flex justify-between items-center">
+                                            <div>
+                                                <div className="font-medium text-primary">{item.title}</div>
+                                                <div className="text-sm text-slate-500">Por: {item.author} | {new Date(item.created_at).toLocaleString()}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => confirmDeleteSong(item.id)}
+                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                                title="Eliminar canción"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
                             )}
-                        </div>
-                    )}
-
-                    {activeTab === 'upload' && (
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="font-bold mb-4 flex items-center gap-2"><Upload size={20} /> Subir Canción Manualmente</h3>
-                            <form onSubmit={handleUpload} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Título de la canción</label>
-                                    <input
-                                        type="text"
-                                        value={uploadForm.title}
-                                        onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary"
-                                        placeholder="Ej: Canción de los Números"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Archivo de Audio (MP3/WAV)</label>
-                                    <input
-                                        type="file"
-                                        id="audioFileInput"
-                                        accept=".mp3,.wav"
-                                        onChange={(e) => setUploadForm({ ...uploadForm, audioFile: e.target.files[0] })}
-                                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Letra (opcional)</label>
-                                    <textarea
-                                        value={uploadForm.lyrics}
-                                        onChange={(e) => setUploadForm({ ...uploadForm, lyrics: e.target.value })}
-                                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary resize-none"
-                                        rows="4"
-                                        placeholder="Letra de la canción..."
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Tags (opcional, separados por coma)</label>
-                                    <input
-                                        type="text"
-                                        value={uploadForm.tags}
-                                        onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                                        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary"
-                                        placeholder="Ej: Piano, Matemática, Alegre"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={uploading}
-                                    className="w-full bg-primary text-white py-3 px-6 rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    {uploading ? 'Subiendo...' : 'Subir Canción'}
-                                </button>
-                            </form>
                         </div>
                     )}
                 </>

@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wand2, Upload, ChevronDown } from 'lucide-react';
 import Button from '../components/ui/Button';
-import VoiceInput from '../components/VoiceInput';
-import HandsFreeAssistant from '../components/HandsFreeAssistant';
+
 import api from '../services/api';
 
 const CreateMusic = () => {
     const navigate = useNavigate();
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showAssistant, setShowAssistant] = useState(false);
+
     const [selectedTags, setSelectedTags] = useState([]);
 
     // Upload form state (for admin)
@@ -100,7 +99,7 @@ const CreateMusic = () => {
             formData.append('tags', uploadForm.tags);
 
             const res = await api.post('/admin/upload-song', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': undefined }
             });
 
             alert('¡Canción subida exitosamente!');
@@ -109,8 +108,21 @@ const CreateMusic = () => {
             // Navegar al reproductor
             window.location.href = `/player/${res.data.song.id}`;
         } catch (error) {
-            console.error(error);
-            alert(error.response?.data?.error || 'Error al subir la canción');
+            console.error("Upload error details:", error);
+            let msg = 'Error al subir: ';
+            if (error.response) {
+                // Server responded with a status code outside 2xx
+                msg += `Server Error (${error.response.status}): ` +
+                    (typeof error.response.data === 'string' ? error.response.data :
+                        (error.response.data?.error || JSON.stringify(error.response.data)));
+            } else if (error.request) {
+                // Request made but no response received
+                msg += 'No hubo respuesta del servidor. Verifica tu conexión o si el servidor está activo.';
+            } else {
+                // Error mostly in setting up the request
+                msg += error.message;
+            }
+            alert(msg);
         } finally {
             setUploading(false);
         }
@@ -118,24 +130,14 @@ const CreateMusic = () => {
 
     return (
         <div className="pb-20">
-            {showAssistant && <HandsFreeAssistant onComplete={(finalPrompt) => { setPrompt(finalPrompt); setShowAssistant(false); }} onCancel={() => setShowAssistant(false)} />}
             <div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Estudio Mágico ✨</h1><p className="text-slate-500">Describe la música que imaginas</p></div>
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col items-center gap-6">
-                <VoiceInput onResult={(text) => setPrompt(text)} placeholder="Presiona y di: 'Una canción alegre de piano...'" />
-                <div className="w-full"><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="O escribe aquí tu idea..." className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700" rows="3" /></div>
-            </div>
-            <div className="mb-8 text-center">
-                <button
-                    onClick={() => setShowAssistant(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm rounded-xl flex items-center justify-center gap-2 mx-auto hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                    <Wand2 size={20} /> Usar Asistente de Voz Interactivo
-                </button>
+                <div className="w-full"><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Escribe aquí tu idea (ej: Piano alegre...)" className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700" rows="3" /></div>
             </div>
 
             {/* Collapsible Quick Ideas */}
             <div className="mb-4">
-                <button 
+                <button
                     onClick={() => setShowQuickIdeas(!showQuickIdeas)}
                     className="w-full py-4 px-5 bg-white border-2 border-indigo-200 hover:border-indigo-300 rounded-2xl flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
                 >
@@ -220,7 +222,7 @@ const CreateMusic = () => {
             {/* Admin Upload Button */}
             {userRole === 'admin' && (
                 <div className="mb-4">
-                    <button 
+                    <button
                         onClick={() => setShowUploadForm(!showUploadForm)}
                         className="w-full py-4 px-5 bg-white border-2 border-amber-200 hover:border-amber-300 rounded-2xl flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
                     >

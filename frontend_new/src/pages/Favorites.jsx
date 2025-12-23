@@ -51,6 +51,13 @@ const Favorites = () => {
         }
     };
 
+    const handleShuffle = () => {
+        if (favorites.length === 0) return;
+        const randomIndex = Math.floor(Math.random() * favorites.length);
+        const randomSong = favorites[randomIndex];
+        navigate(`/player/${randomSong.id}`, { state: { from: 'favorites', shuffle: true } });
+    };
+
     return (
         <div className="pb-20">
             <ConfirmModal
@@ -65,7 +72,7 @@ const Favorites = () => {
             />
 
             <div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Mis Favoritos ❤️</h1><p className="text-slate-500 text-sm">Tu colección personal</p></div>
-            <div className="flex gap-2 mb-4"><div className="flex-1"><Input placeholder="Buscar..." icon={Search} value={search} onChange={(e) => setSearch(e.target.value)} /></div><button className="bg-slate-100 p-3 rounded-xl text-slate-600 hover:bg-slate-200 h-[52px]"><Shuffle size={20} /></button></div>
+            <div className="flex gap-2 mb-4"><div className="flex-1"><Input placeholder="Buscar..." icon={Search} value={search} onChange={(e) => setSearch(e.target.value)} /></div><button onClick={handleShuffle} className="bg-slate-100 p-3 rounded-xl text-slate-600 hover:bg-slate-200 h-[52px]"><Shuffle size={20} /></button></div>
             <div className="space-y-4">
                 {filtered.length === 0 ? <p className="text-center text-slate-400 py-8">No tienes favoritos aún</p> : filtered.map((song) => (
                     <Card key={song.id} className="flex items-center justify-between gap-3">

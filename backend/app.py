@@ -3,6 +3,8 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
+import os
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
@@ -26,7 +28,9 @@ def create_app():
     db.init_app(app)
     
     # 2. CORS (Permite que el Frontend React hable con este Backend)
-    CORS(app)
+    # 2. CORS (Permite que el Frontend React hable con este Backend)
+    # Configuración permisiva para desarrollo móvil
+    CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
     # 3. Scheduler (Para limpieza automática - RNF-12)
     scheduler = BackgroundScheduler()
@@ -83,9 +87,16 @@ def cleanup_history(app):
             # Verificar si es favorita
             is_fav = Favorite.query.filter_by(song_id=song.id).first()
             if not is_fav:
+                # Eliminar archivo físico
+                try:
+                    file_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], song.audio_filename)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    audit_logger.error(f"Error borrando archivo físico {song.id}: {e}")
+
                 db.session.delete(song)
                 deleted_count += 1
-                # Aquí también borraríamos el archivo físico MP3
         
         db.session.commit()
         if deleted_count > 0:

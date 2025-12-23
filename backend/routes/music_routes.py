@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, Song, Favorite, User
-from services.ai_service import generate_music_mock
+from services.ai_service import generate_music_real, generate_music_mock
 from utils.logger import audit_logger
 from datetime import datetime, timedelta
 
@@ -23,18 +23,18 @@ def generate_music():
         return jsonify({'error': 'El prompt es obligatorio'}), 400
 
     try:
-        # 1. Llamar al servicio de IA (Simulado)
-        ai_result = generate_music_mock(prompt)
+        # 1. Llamar al servicio de IA (Real con Replicate)
+        ai_result = generate_music_real(prompt, duration=10)
         
         # 2. Guardar en Base de Datos (Historial)
         new_song = Song(
             user_id=user_id,
-            title=f"Canción sobre {prompt[:20]}...", # Título automático
+            title=f"Canción sobre {prompt[:20]}...",
             prompt=prompt,
             audio_filename=ai_result['filename'],
             tags=ai_result['tags'],
             lyrics=ai_result['lyrics'],
-            duration=10 # Demo
+            duration=10
         )
         
         db.session.add(new_song)
@@ -47,7 +47,7 @@ def generate_music():
             'song': {
                 'id': new_song.id,
                 'title': new_song.title,
-                'audio_url': f"/static/music/{new_song.audio_filename}", # URL pública
+                'audio_url': f"/static/music/{new_song.audio_filename}",
                 'tags': new_song.tags,
                 'lyrics': new_song.lyrics
             }
@@ -132,13 +132,14 @@ def get_favorites():
     
     results = []
     for fav in favorites:
-        s = fav.song # Acceso gracias a la relación en models.py
+        s = fav.song
         results.append({
             'id': s.id,
             'title': s.title,
             'tags': s.tags,
             'audio_url': f"/static/music/{s.audio_filename}",
-            'favorited_at': fav.favorited_at.isoformat()
+            'favorited_at': fav.favorited_at.isoformat(),
+            'is_favorite': True
         })
         
     return jsonify(results), 200
