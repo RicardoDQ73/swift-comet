@@ -91,17 +91,25 @@ def monitor_activity():
     if not check_admin():
         return jsonify({'error': 'Acceso denegado'}), 403
         
-    # Por ahora devolvemos las últimas 50 canciones generadas por cualquiera
+    # Devolver últimas 50, incluyendo archivadas
     songs = Song.query.order_by(Song.created_at.desc()).limit(50).all()
     
+    # Importar modelo Favorite localmente para evitar dependencias circulares si las hubiera, o usar global si ya está
+    from models import Favorite
+
     results = []
     for s in songs:
+        # Verificar si es favorito de algun usuario
+        is_fav = Favorite.query.filter_by(song_id=s.id).first() is not None
+
         results.append({
             'id': s.id,
             'title': s.title,
-            'author': s.author.name,
+            'author': s.author.name if s.author else "Desconocido",
             'created_at': s.created_at.isoformat(),
-            'tags': s.tags
+            'tags': s.tags,
+            'is_archived': s.is_archived,
+            'is_favorite': is_fav # Estado de favorito
         })
     return jsonify(results), 200
 
@@ -189,6 +197,18 @@ def delete_song(song_id):
     if not song:
         return jsonify({'error': 'Canción no encontrada'}), 404
 
+    # Verificar param para borrado forzado (físico)
+    force_delete = request.args.get('force', 'false').lower() == 'true'
+
+    if not force_delete:
+        # SOFT DELETE (Mover a Papelera)
+        song.is_archived = True
+        db.session.commit()
+        audit_logger.info(f"ADMIN archivó (Soft Delete) canción ID {song_id}")
+        return jsonify({'message': 'Canción movida a la papelera'}), 200
+
+    # HARD DELETE (Borrado Físico - Solo si ?force=true)
+    
     # Eliminar favoritos asociados para mantener integridad referencial
     from models import Favorite
     Favorite.query.filter_by(song_id=song_id).delete()
@@ -208,5 +228,45 @@ def delete_song(song_id):
     db.session.delete(song)
     db.session.commit()
     
-    audit_logger.warning(f"ADMIN eliminó canción ID {song_id}")
-    return jsonify({'message': 'Canción eliminada'}), 200
+    audit_logger.warning(f"ADMIN eliminó PERMANENTEMENTE canción ID {song_id}")
+    return jsonify({'message': 'Canción eliminada permanentemente'}), 200
+
+# NUEVOS ENDPOINTS PARA SOFT DELETE
+
+@admin_bp.route('/archive', methods=['GET'])
+@jwt_required()
+def list_archived_songs():
+    """Listar canciones archivadas (Soft Deleted) que tienen >24h"""
+    if not check_admin():
+        return jsonify({'error': 'Acceso denegado'}), 403
+
+    songs = Song.query.filter_by(is_archived=True).order_by(Song.created_at.desc()).all()
+    
+    results = []
+    for s in songs:
+        results.append({
+            'id': s.id,
+            'title': s.title,
+            'author': s.author.name if s.author else "Desconocido",
+            'created_at': s.created_at.isoformat(),
+            'tags': s.tags
+        })
+    return jsonify(results), 200
+
+@admin_bp.route('/archive/restore/<int:song_id>', methods=['POST'])
+@jwt_required()
+def restore_song(song_id):
+    """Restaurar canción: is_archived=False y resetear fecha de creación"""
+    if not check_admin():
+        return jsonify({'error': 'Acceso denegado'}), 403
+
+    song = Song.query.get(song_id)
+    if not song:
+        return jsonify({'error': 'Canción no encontrada'}), 404
+
+    song.is_archived = False
+    song.created_at = datetime.utcnow() # Reiniciar el reloj de 24h
+    db.session.commit()
+    
+    audit_logger.info(f"ADMIN restauró canción ID {song_id}")
+    return jsonify({'message': 'Canción restaurada exitosamente'}), 200

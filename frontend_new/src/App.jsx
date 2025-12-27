@@ -9,6 +9,7 @@ import Favorites from './pages/Favorites';
 import History from './pages/History';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
+import KaraokeHub from './pages/KaraokeHub'; // New Import
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +35,7 @@ function App() {
           <Route path="favorites" element={<Favorites />} />
           <Route path="history" element={<History />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="karaoke" element={<KaraokeHub />} /> {/* New Route */}
           <Route path="admin" element={<AdminDashboard />} />
         </Route>
 

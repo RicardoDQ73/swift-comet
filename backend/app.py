@@ -69,38 +69,29 @@ def create_app():
 
 def cleanup_history(app):
     """
-    Tarea programada: Elimina canciones viejas (>24h) que NO son favoritas.
+    Tarea programada: Archiva (Soft Delete) canciones viejas (>24h) que NO son favoritas.
     RNF-12: Gestión del historial.
     """
     with app.app_context():
-        audit_logger.info("Ejecutando limpieza automática de historial...")
+        # audit_logger.info("Verificando canciones para archivar...") 
         expiration_time = datetime.utcnow() - timedelta(hours=24)
         
-        # Lógica SQL: Borrar canciones creadas antes de 24h Y que no estén en favoritos
-        # Nota: SQLAlchemy lo hace más pythonico
+        # 1. Buscar canciones expiradas que NO estén ya archivadas
+        expired_songs = Song.query.filter(Song.created_at < expiration_time, Song.is_archived == False).all()
         
-        # 1. Buscar canciones expiradas
-        expired_songs = Song.query.filter(Song.created_at < expiration_time).all()
-        
-        deleted_count = 0
+        archived_count = 0
         for song in expired_songs:
-            # Verificar si es favorita
+            # Verificar si es favorita (Las favoritas NO se tocan)
             is_fav = Favorite.query.filter_by(song_id=song.id).first()
             if not is_fav:
-                # Eliminar archivo físico
-                try:
-                    file_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], song.audio_filename)
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                except Exception as e:
-                    audit_logger.error(f"Error borrando archivo físico {song.id}: {e}")
-
-                db.session.delete(song)
-                deleted_count += 1
+                # SOFT DELETE: Solo marcamos como archivada.
+                # El archivo físico SE MANTIENE por si el admin restaura.
+                song.is_archived = True
+                archived_count += 1
         
-        db.session.commit()
-        if deleted_count > 0:
-            audit_logger.info(f"Limpieza completada: {deleted_count} canciones eliminadas.")
+        if archived_count > 0:
+            db.session.commit()
+            audit_logger.info(f"Limpieza (Archivado): {archived_count} canciones movidas al archivo.")
 
 if __name__ == '__main__':
     app = create_app()

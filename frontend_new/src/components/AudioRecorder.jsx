@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Download, Play, Pause, Trash2, Settings, Volume2, Mic as MicIcon, Loader } from 'lucide-react';
+import { Mic, Square, Download, Play, Pause, Trash2, Settings, Volume2, Mic as MicIcon, Loader, Heart } from 'lucide-react';
 import { audioBufferToWav } from '../utils/audioUtils';
+import api from '../services/api';
 
-const AudioRecorder = ({ audioRef }) => {
+const AudioRecorder = ({ audioRef, autoStart = false, song = null }) => {
     // States
     const [isRecording, setIsRecording] = useState(false);
     const [isCountingDown, setIsCountingDown] = useState(false);
@@ -17,6 +18,7 @@ const AudioRecorder = ({ audioRef }) => {
     const [recordingTime, setRecordingTime] = useState(0);
     const [isPlayingPreview, setIsPlayingPreview] = useState(false);
     const [isRendering, setIsRendering] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Mixing States
     const [musicVolume, setMusicVolume] = useState(0.5);
@@ -27,11 +29,24 @@ const AudioRecorder = ({ audioRef }) => {
     const mediaRecorderRef = useRef(null);
     const audioContextRef = useRef(null);
     const timerRef = useRef(null);
+    const autoStartedRef = useRef(false); // Fix double trigger in StrictMode
 
     // Preview Audio Refs
     const voiceSourceNodeRef = useRef(null);
     const voiceGainNodeRef = useRef(null);
     const musicGainNodeRef = useRef(null); // Optional if we routed music via WebAudio, but we use element volume
+
+    useEffect(() => {
+        if (autoStart && !isRecording && !isCountingDown && !voiceBlob && !autoStartedRef.current) {
+            autoStartedRef.current = true;
+            console.log("Auto-starting recording session...");
+            // Scroll to view
+            setTimeout(() => {
+                document.getElementById('recorder-section')?.scrollIntoView({ behavior: 'smooth' });
+                startCountdown();
+            }, 800); // Small delay for UI transition
+        }
+    }, [autoStart]);
 
     // Cleanup
     useEffect(() => {
@@ -204,67 +219,101 @@ const AudioRecorder = ({ audioRef }) => {
     // -------------------------------------------------------------
     // 3. EXPORT PHASE (Offline Render)
     // -------------------------------------------------------------
+    // 3. EXPORT PHASE (Offline Render)
+    // -------------------------------------------------------------
+
+    const generateMixBlob = async () => {
+        if (!voiceBlob || !audioRef.current) return null;
+
+        // 1. Fetch Music Data (CORS required)
+        const musicResp = await fetch(audioRef.current.src);
+        const musicArrayBuffer = await musicResp.arrayBuffer();
+
+        // 2. Prepare Voice Data
+        const voiceArrayBuffer = await voiceBlob.arrayBuffer();
+
+        // 3. Decode Both (Use a temporary context)
+        const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const musicBuffer = await tempCtx.decodeAudioData(musicArrayBuffer);
+        const voiceBuffer = await tempCtx.decodeAudioData(voiceArrayBuffer);
+
+        // 4. Create Offline Context
+        const duration = Math.max(musicBuffer.duration, voiceBuffer.duration);
+        const offlineCtx = new OfflineAudioContext(2, duration * 44100, 44100);
+
+        // 5. Schedule Music
+        const musicSource = offlineCtx.createBufferSource();
+        musicSource.buffer = musicBuffer;
+        const musicGain = offlineCtx.createGain();
+        musicGain.gain.value = musicVolume;
+        musicSource.connect(musicGain);
+        musicGain.connect(offlineCtx.destination);
+        musicSource.start(0);
+
+        // 6. Schedule Voice
+        const voiceSource = offlineCtx.createBufferSource();
+        voiceSource.buffer = voiceBuffer;
+        const voiceGain = offlineCtx.createGain();
+        voiceGain.gain.value = micVolume;
+        voiceSource.connect(voiceGain);
+        voiceGain.connect(offlineCtx.destination);
+        voiceSource.start(0);
+
+        // 7. Render
+        const renderedBuffer = await offlineCtx.startRendering();
+
+        // 8. Convert to WAV/Blob
+        const wavData = audioBufferToWav(renderedBuffer, { float32: true });
+        return new Blob([wavData], { type: 'audio/wav' });
+    };
+
     const handleDownload = async () => {
-        if (!voiceBlob || !audioRef.current) return;
         setIsRendering(true);
-
         try {
-            // 1. Fetch Music Data (CORS required)
-            const musicResp = await fetch(audioRef.current.src);
-            const musicArrayBuffer = await musicResp.arrayBuffer();
+            const finalBlob = await generateMixBlob();
+            if (!finalBlob) return;
 
-            // 2. Prepare Voice Data
-            const voiceArrayBuffer = await voiceBlob.arrayBuffer();
-
-            // 3. Decode Both (Use a temporary context)
-            const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const musicBuffer = await tempCtx.decodeAudioData(musicArrayBuffer);
-            const voiceBuffer = await tempCtx.decodeAudioData(voiceArrayBuffer);
-
-            // 4. Create Offline Context
-            const duration = Math.max(musicBuffer.duration, voiceBuffer.duration);
-            const offlineCtx = new OfflineAudioContext(2, duration * 44100, 44100);
-
-            // 5. Schedule Music
-            const musicSource = offlineCtx.createBufferSource();
-            musicSource.buffer = musicBuffer;
-            const musicGain = offlineCtx.createGain();
-            musicGain.gain.value = musicVolume;
-            musicSource.connect(musicGain);
-            musicGain.connect(offlineCtx.destination);
-            musicSource.start(0);
-
-            // 6. Schedule Voice
-            const voiceSource = offlineCtx.createBufferSource();
-            voiceSource.buffer = voiceBuffer;
-            const voiceGain = offlineCtx.createGain();
-            voiceGain.gain.value = micVolume;
-            voiceSource.connect(voiceGain);
-            voiceGain.connect(offlineCtx.destination);
-            voiceSource.start(0);
-
-            // 7. Render
-            const renderedBuffer = await offlineCtx.startRendering();
-
-            // 8. Convert to WAV/Blob
-            const wavData = audioBufferToWav(renderedBuffer, { float32: true });
-            const finalBlob = new Blob([wavData], { type: 'audio/wav' });
             const url = URL.createObjectURL(finalBlob);
-
-            // 9. Trigger Download
             const a = document.createElement('a');
             a.href = url;
             a.download = 'mi_estudio_mix.wav';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-
-            setIsRendering(false);
-
         } catch (err) {
             console.error("Rendering error:", err);
             alert("Error generando la mezcla: " + err.message);
+        } finally {
             setIsRendering(false);
+        }
+    };
+
+    const handleSaveToFavorites = async () => {
+        if (!song) {
+            alert("No se puede guardar: Canción base no identificada.");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const finalBlob = await generateMixBlob();
+            if (!finalBlob) return;
+
+            const formData = new FormData();
+            formData.append('file', finalBlob, 'mix.wav');
+            formData.append('original_song_id', song.id);
+
+            await api.post('/music/upload_mix', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            alert("¡Mezcla guardada en favoritos exitosamente! 🌟");
+
+        } catch (err) {
+            console.error(err);
+            alert("Error al guardar: " + err.message);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -282,7 +331,7 @@ const AudioRecorder = ({ audioRef }) => {
     };
 
     return (
-        <div className="w-full bg-slate-50 rounded-xl p-4 border border-slate-200 relative overflow-hidden transition-all">
+        <div id="recorder-section" className="w-full bg-slate-50 rounded-xl p-4 border border-slate-200 relative overflow-hidden transition-all">
             {isCountingDown && (
                 <div className="absolute inset-0 bg-indigo-900/90 z-50 flex items-center justify-center backdrop-blur-sm">
                     <div className="text-9xl font-black text-white animate-bounce">{count}</div>
@@ -368,6 +417,17 @@ const AudioRecorder = ({ audioRef }) => {
                     <button onClick={handleDownload} className="p-3 text-white bg-green-500 hover:bg-green-600 rounded-full shadow-lg shadow-green-500/30 transition-colors shrink-0" title="Renderizar y Descargar">
                         <Download size={20} />
                     </button>
+
+                    {song && (
+                        <button
+                            onClick={handleSaveToFavorites}
+                            disabled={isSaving}
+                            className={`p-3 text-white rounded-full shadow-lg transition-colors shrink-0 ${isSaving ? 'bg-slate-400' : 'bg-pink-500 hover:bg-pink-600 shadow-pink-500/30'}`}
+                            title="Guardar Mix en Favoritos"
+                        >
+                            {isSaving ? <Loader className="animate-spin" size={20} /> : <Heart size={20} fill="currentColor" />}
+                        </button>
+                    )}
 
                     <button onClick={deleteRecording} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors shrink-0" title="Descartar">
                         <Trash2 size={20} />

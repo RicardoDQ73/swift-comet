@@ -45,6 +45,12 @@ class Song(db.Model):
     tags = db.Column(JSON)  # Etiquetas: {'curso': 'Matemática', 'instrumento': 'Piano'}
     duration = db.Column(db.Integer)  # En segundos
     
+    # Tipo de cancion: 'GENERATED' (IA) o 'COVER' (Karaoke Mix)
+    song_type = db.Column(db.String(20), default='GENERATED')
+    
+    # Campo para Soft Delete (Archivado)
+    is_archived = db.Column(db.Boolean, default=False)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Campo calculado para saber si es favorita (se llenará en tiempo de ejecución)

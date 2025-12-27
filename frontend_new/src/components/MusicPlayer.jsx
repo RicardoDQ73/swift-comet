@@ -6,7 +6,7 @@ import ConfirmModal from './ui/ConfirmModal';
 import AudioRecorder from './AudioRecorder';
 import api from '../services/api';
 
-const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false }) => {
+const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false, autoRecord = false }) => {
     const audioRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -241,7 +241,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
             </div>
 
             <div className="mb-6">
-                <AudioRecorder audioRef={audioRef} />
+                <AudioRecorder audioRef={audioRef} autoStart={autoRecord} song={song} />
             </div>
 
             {song.lyrics && <Card className="flex-1 overflow-y-auto mb-6 bg-slate-50 border-none"><h3 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">Letra</h3><p className="text-slate-700 whitespace-pre-line leading-relaxed text-lg font-medium">{song.lyrics}</p></Card>}

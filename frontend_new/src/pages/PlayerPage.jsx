@@ -92,6 +92,7 @@ const PlayerPage = () => {
                     currentIndex={currentIndex}
                     onNavigate={handleNavigate}
                     isShuffle={location.state?.shuffle}
+                    autoRecord={location.state?.autoRecord} // Pass auto-record flag
                 />
             </div>
         </div>

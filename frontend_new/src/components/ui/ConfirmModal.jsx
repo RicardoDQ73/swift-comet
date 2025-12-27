@@ -49,10 +49,14 @@ const ConfirmModal = ({
         success: {
             icon: 'bg-green-100 text-green-600',
             confirmBtn: 'bg-green-600 hover:bg-green-700 text-white'
+        },
+        primary: {
+            icon: 'bg-blue-100 text-blue-600',
+            confirmBtn: 'bg-blue-600 hover:bg-blue-700 text-white'
         }
     };
 
-    const styles = variantStyles[variant];
+    const styles = variantStyles[variant] || variantStyles.danger;
 
     return (
         <div

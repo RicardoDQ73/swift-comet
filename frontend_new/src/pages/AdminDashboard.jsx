@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Trash2, Edit2, Activity, Save, X } from 'lucide-react';
+import { Users, Trash2, Edit2, Activity, Save, X, Archive, RefreshCw } from 'lucide-react';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 
 const AdminDashboard = () => {
     const [users, setUsers] = useState([]);
     const [activity, setActivity] = useState([]);
+    const [archived, setArchived] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('users'); // 'users', 'monitor'
+    const [activeTab, setActiveTab] = useState('users');
 
-    // Modal state
+    // Unified Modal State
     const [modalOpen, setModalOpen] = useState(false);
-    const [userToDelete, setUserToDelete] = useState(null);
-    const [songToDelete, setSongToDelete] = useState(null);
+    const [pendingAction, setPendingAction] = useState(null); // { type: 'ARCHIVE' | 'RESTORE' | 'HARD_DELETE' | 'DELETE_USER', item: obj }
 
     useEffect(() => {
         fetchData();
@@ -25,9 +25,12 @@ const AdminDashboard = () => {
             if (activeTab === 'users') {
                 const res = await api.get('/admin/users');
                 setUsers(res.data);
-            } else {
+            } else if (activeTab === 'monitor') {
                 const res = await api.get('/admin/monitor');
                 setActivity(res.data);
+            } else if (activeTab === 'archive') {
+                const res = await api.get('/admin/archive');
+                setArchived(res.data);
             }
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -37,39 +40,65 @@ const AdminDashboard = () => {
         }
     };
 
-    const confirmDeleteUser = (id) => {
-        setUserToDelete(id);
-        setSongToDelete(null);
+    // --- Action Triggers ---
+
+    const askDeleteUser = (user) => {
+        setPendingAction({ type: 'DELETE_USER', item: user });
         setModalOpen(true);
     };
 
-    const confirmDeleteSong = (id) => {
-        setSongToDelete(id);
-        setUserToDelete(null);
+    const askArchiveSong = (song) => {
+        setPendingAction({ type: 'ARCHIVE', item: song });
         setModalOpen(true);
     };
 
-    const handleDelete = async () => {
+    const askHardDeleteSong = (song) => {
+        setPendingAction({ type: 'HARD_DELETE', item: song });
+        setModalOpen(true);
+    };
+
+    const askRestoreSong = (song) => {
+        setPendingAction({ type: 'RESTORE', item: song });
+        setModalOpen(true);
+    };
+
+    // --- Execution ---
+
+    const handleConfirmAction = async () => {
+        if (!pendingAction) return;
+
+        const { type, item } = pendingAction;
         try {
-            if (userToDelete) {
-                await api.delete(`/admin/users/${userToDelete}`);
-                setUsers(users.filter(u => u.id !== userToDelete));
-                setUserToDelete(null);
-                alert("Usuario eliminado correctamente");
-            } else if (songToDelete) {
-                await api.delete(`/admin/songs/${songToDelete}`);
-                setActivity(activity.filter(s => s.id !== songToDelete));
-                setSongToDelete(null);
-                alert("Canción eliminada correctamente");
+            if (type === 'DELETE_USER') {
+                await api.delete(`/admin/users/${item.id}`);
+                setUsers(users.filter(u => u.id !== item.id));
+                // alert("Usuario eliminado correctamente");
+            }
+            else if (type === 'ARCHIVE') {
+                await api.delete(`/admin/songs/${item.id}`); // Soft delete default
+                setActivity(activity.map(s => s.id === item.id ? { ...s, is_archived: true } : s));
+                // alert("Canción archivada");
+            }
+            else if (type === 'HARD_DELETE') {
+                await api.delete(`/admin/songs/${item.id}?force=true`);
+                setArchived(archived.filter(s => s.id !== item.id));
+                // alert("Canción eliminada definitivamente");
+            }
+            else if (type === 'RESTORE') {
+                await api.post(`/admin/archive/restore/${item.id}`);
+                setArchived(archived.filter(s => s.id !== item.id));
+                // alert("Canción restaurada");
             }
         } catch (error) {
             console.error(error);
-            alert('Error al eliminar');
+            alert("Ocurrió un error al procesar la acción.");
+        } finally {
+            setModalOpen(false);
+            setPendingAction(null);
         }
-        setModalOpen(false);
     };
 
-    const handleUpdate = async (e) => {
+    const handleUpdateUser = async (e) => {
         e.preventDefault();
         try {
             await api.put(`/admin/users/${editingUser.id}`, {
@@ -85,19 +114,58 @@ const AdminDashboard = () => {
         }
     };
 
+    // --- Modal Content Helper ---
+
+    const getModalContent = () => {
+        if (!pendingAction) return {};
+
+        switch (pendingAction.type) {
+            case 'ARCHIVE':
+                return {
+                    title: "📂 ¿Mover al Archivo?",
+                    message: `Vas a archivar "${pendingAction.item.title}".\n\nNo se borrará, pero dejará de ser visible en el historial del docente. Siempre podrás recuperarla después.`,
+                    confirmText: "Sí, Archivar",
+                    variant: "primary" // Blue/Primary is friendly
+                };
+            case 'RESTORE':
+                return {
+                    title: "♻️ ¿Restaurar Canción?",
+                    message: `Vamos a traer de vuelta "${pendingAction.item.title}".\n\nAparecerá nuevamente en el historial del docente por 24 horas más.`,
+                    confirmText: "¡Restaurar!",
+                    variant: "success" // Green for positive action
+                };
+            case 'HARD_DELETE':
+                return {
+                    title: "⚠️ ¿Eliminar Definitivamente?",
+                    message: `¡Cuidado! Estás a punto de borrar "${pendingAction.item.title}" para siempre.\n\nEsta acción es irreversible y se eliminará el archivo de audio. ¿Seguro?`,
+                    confirmText: "Borrar Para Siempre",
+                    variant: "danger" // Red for destructive
+                };
+            case 'DELETE_USER':
+                return {
+                    title: "¿Eliminar Usuario?",
+                    message: `Se eliminará al usuario ${pendingAction.item.name} y todos sus datos asociados.`,
+                    confirmText: "Eliminar Usuario",
+                    variant: "danger"
+                };
+            default:
+                return {};
+        }
+    };
+
+    const modalProps = getModalContent();
+
     return (
         <div className="pb-20">
             <ConfirmModal
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
-                onConfirm={handleDelete}
-                title={userToDelete ? "¿Eliminar usuario?" : "¿Eliminar canción?"}
-                message={userToDelete
-                    ? "Este usuario será eliminado permanentemente del sistema."
-                    : "Esta canción se eliminará permanentemente del historial para todos."}
-                confirmText="Eliminar"
+                onConfirm={handleConfirmAction}
+                title={modalProps.title}
+                message={modalProps.message}
+                confirmText={modalProps.confirmText}
                 cancelText="Cancelar"
-                variant="danger"
+                variant={modalProps.variant || 'danger'}
             />
 
             <div className="mb-6 flex justify-between items-center">
@@ -105,21 +173,30 @@ const AdminDashboard = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={() => setActiveTab('users')}
-                        className={`p-2 rounded-xl ${activeTab === 'users' ? 'bg-primary text-white' : 'bg-white text-slate-600'}`}
+                        className={`p-2 rounded-xl transition-colors ${activeTab === 'users' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                        title="Usuarios"
                     >
                         <Users size={20} />
                     </button>
                     <button
                         onClick={() => setActiveTab('monitor')}
-                        className={`p-2 rounded-xl ${activeTab === 'monitor' ? 'bg-primary text-white' : 'bg-white text-slate-600'}`}
+                        className={`p-2 rounded-xl transition-colors ${activeTab === 'monitor' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                        title="Actividad Reciente"
                     >
                         <Activity size={20} />
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('archive')}
+                        className={`p-2 rounded-xl transition-colors ${activeTab === 'archive' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                        title="Papelera / Archivo"
+                    >
+                        <Archive size={20} />
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="text-center py-10">Cargando...</div>
+                <div className="text-center py-10 text-slate-500 animate-pulse">Cargando datos...</div>
             ) : (
                 <>
                     {activeTab === 'users' && (
@@ -127,7 +204,7 @@ const AdminDashboard = () => {
                             {users.map(user => (
                                 <div key={user.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
                                     {editingUser?.id === user.id ? (
-                                        <form onSubmit={handleUpdate} className="flex-1 grid gap-2">
+                                        <form onSubmit={handleUpdateUser} className="flex-1 grid gap-2">
                                             <input
                                                 className="border p-2 rounded"
                                                 value={editingUser.name}
@@ -167,7 +244,7 @@ const AdminDashboard = () => {
                                             </div>
                                             <div className="flex gap-2">
                                                 <button onClick={() => setEditingUser(user)} className="p-2 hover:bg-slate-100 rounded-full text-blue-500"><Edit2 size={18} /></button>
-                                                <button onClick={() => confirmDeleteUser(user.id)} className="p-2 hover:bg-slate-100 rounded-full text-red-500"><Trash2 size={18} /></button>
+                                                <button onClick={() => askDeleteUser(user)} className="p-2 hover:bg-slate-100 rounded-full text-red-500"><Trash2 size={18} /></button>
                                             </div>
                                         </>
                                     )}
@@ -178,22 +255,82 @@ const AdminDashboard = () => {
 
                     {activeTab === 'monitor' && (
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="font-bold mb-4">Últimas Generaciones</h3>
-                            {activity.length === 0 ? <p>No hay actividad reciente.</p> : (
+                            <h3 className="font-bold mb-4 text-slate-700 flex items-center gap-2">
+                                <Activity size={18} /> Actividad Reciente
+                            </h3>
+                            {activity.length === 0 ? <p className="text-slate-500 italic">No hay actividad reciente.</p> : (
                                 <ul className="space-y-3">
                                     {activity.map(item => (
-                                        <li key={item.id} className="border-b pb-2 flex justify-between items-center">
+                                        <li key={item.id} className={`border-b pb-2 flex justify-between items-center last:border-0 ${item.is_archived ? 'opacity-60 bg-slate-50 p-2 rounded' : ''} ${item.is_favorite ? 'bg-pink-50 p-2 rounded border-pink-100' : ''}`}>
                                             <div>
-                                                <div className="font-medium text-primary">{item.title}</div>
+                                                <div className="font-medium text-primary flex items-center gap-2">
+                                                    {item.title}
+                                                    {item.is_archived && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">ARCHIVADA</span>}
+                                                    {item.is_favorite && <span className="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full border border-pink-200 flex items-center gap-1">❤️ FAVORITO</span>}
+                                                </div>
                                                 <div className="text-sm text-slate-500">Por: {item.author} | {new Date(item.created_at).toLocaleString()}</div>
                                             </div>
-                                            <button
-                                                onClick={() => confirmDeleteSong(item.id)}
-                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                                title="Eliminar canción"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+
+                                            <div className="flex gap-2">
+                                                {!item.is_archived && !item.is_favorite && (
+                                                    <button
+                                                        onClick={() => askArchiveSong(item)}
+                                                        className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-colors"
+                                                        title="Archivar canción"
+                                                    >
+                                                        <Archive size={18} />
+                                                    </button>
+                                                )}
+                                                {item.is_favorite && (
+                                                    <div className="p-2 text-pink-300" title="No se puede archivar una canción favorita">
+                                                        <Save size={18} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'archive' && (
+                        <div className="bg-amber-50 p-4 rounded-2xl shadow-sm border border-amber-100">
+                            <h3 className="font-bold mb-2 text-amber-800 flex items-center gap-2">
+                                <Archive size={18} /> Archivo / Papelera
+                            </h3>
+                            <p className="text-xs text-amber-700 mb-4 bg-amber-100 p-2 rounded">
+                                Aquí están las canciones que expiraron (más de 24h) y no fueron guardadas en favoritos.
+                                Puedes <b>Restaurarlas</b> para darles otras 24h de vida en el historial del docente.
+                            </p>
+
+                            {archived.length === 0 ? <p className="text-slate-500 italic text-center py-4">El archivo está vacío.</p> : (
+                                <ul className="space-y-3">
+                                    {archived.map(item => (
+                                        <li key={item.id} className="bg-white p-3 rounded-lg border border-amber-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                            <div>
+                                                <div className="font-medium text-slate-700">{item.title}</div>
+                                                <div className="text-sm text-slate-500">
+                                                    Autor: {item.author} <br />
+                                                    Creado: {new Date(item.created_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 self-end sm:self-center">
+                                                <button
+                                                    onClick={() => askRestoreSong(item)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors text-sm font-medium"
+                                                    title="Reactivar por 24h"
+                                                >
+                                                    <RefreshCw size={16} /> Restaurar
+                                                </button>
+                                                <button
+                                                    onClick={() => askHardDeleteSong(item)}
+                                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                                    title="Eliminar DEFINITIVAMENTE"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>

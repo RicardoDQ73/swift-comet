@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Music, Heart, Clock, User, Shield } from 'lucide-react';
+import { Home, Music, Heart, Clock, User, Shield, Mic } from 'lucide-react';
 
 const Layout = () => {
     const navigate = useNavigate();
@@ -10,6 +10,7 @@ const Layout = () => {
     const navItems = [
         { icon: Home, label: 'Inicio', path: '/home' },
         { icon: Music, label: 'Crear', path: '/create' },
+        { icon: Mic, label: 'Estudio', path: '/karaoke' }, // Nuevo item
         { icon: Heart, label: 'Favoritos', path: '/favorites' },
         { icon: Clock, label: 'Historial', path: '/history' },
     ];
