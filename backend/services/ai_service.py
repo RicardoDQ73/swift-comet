@@ -46,9 +46,10 @@ def generate_music_real(prompt, duration=10):
         prediction_id = prediction["id"]
         
         print(f"Predicción creada: {prediction_id}")
+        print(f"Monitor URL: https://replicate.com/p/{prediction_id}")
         
         # Esperar a que termine (polling)
-        max_attempts = 60  # 60 intentos * 3s = 3 minutos max
+        max_attempts = 100  # 100 intentos * 3s = 5 minutos max
         for attempt in range(max_attempts):
             time.sleep(3)
             status_response = client.get(
@@ -57,6 +58,9 @@ def generate_music_real(prompt, duration=10):
             )
             status_response.raise_for_status()
             status_data = status_response.json()
+            
+            current_status = status_data.get("status")
+            print(f"Estado ({attempt+1}/{max_attempts}): {current_status}")
             
             status = status_data["status"]
             print(f"Estado: {status}")

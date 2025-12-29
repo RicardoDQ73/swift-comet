@@ -6,7 +6,7 @@ import ConfirmModal from './ui/ConfirmModal';
 import AudioRecorder from './AudioRecorder';
 import api from '../services/api';
 
-const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false, autoRecord = false }) => {
+const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false, autoRecord = false, showStudio = false, allowFavorites = true }) => {
     const audioRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -45,9 +45,16 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
 
     // Reset playing state when song changes
     useEffect(() => {
-        setIsPlaying(true);
+        // Check explicit autoPlay prop first (passed from navigation mainly for "Next" logic)
+        // If autoPlay is specifically FALSE, respect it.
+        // Otherwise, default to !showStudio (original logic)
+        if (typeof song.autoPlay === 'boolean') {
+            setIsPlaying(song.autoPlay);
+        } else {
+            setIsPlaying(!showStudio);
+        }
         setIsFavorite(song.is_favorite);
-    }, [song]);
+    }, [song, showStudio]);
 
     const formatTime = (seconds) => {
         if (!seconds || isNaN(seconds)) return '0:00';
@@ -123,7 +130,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
             setIsFavorite(!isFavorite);
         } catch (error) {
             console.error("Error toggling favorite", error);
-            alert("Error al actualizar favoritos");
+            // alert("Error al actualizar favoritos");
         }
     };
 
@@ -149,6 +156,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
     };
 
     const handleNext = () => {
+        // Allow next if shuffle is on OR if we are not at end
         if (onNavigate && (isShuffle || currentIndex < playlist.length - 1)) {
             onNavigate(currentIndex + 1);
         }
@@ -157,23 +165,38 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
     const hasPrevious = currentIndex > 0;
     const hasNext = isShuffle || currentIndex < playlist.length - 1;
 
+    const handleAudioError = (e) => {
+        console.error("Audio playback error:", e);
+        const error = e.target.error;
+        let message = "Error desconocido de reproducción";
+        if (error) {
+            switch (error.code) {
+                case error.MEDIA_ERR_ABORTED: message = "Reproducción abortada"; break;
+                case error.MEDIA_ERR_NETWORK: message = "Error de red al cargar audio"; break;
+                case error.MEDIA_ERR_DECODE: message = "Audio corrupto o no soportado"; break;
+                case error.MEDIA_ERR_SRC_NOT_SUPPORTED: message = "Formato de audio no soportado o archivo no encontrado (404)"; break;
+            }
+        }
+        // Only alert if it's not a transient loading issue
+        console.warn(`Playback Error Code ${error?.code}: ${message}`);
+        // alert(`No se pudo reproducir: ${message}`);
+    };
+
     return (
         <div className="flex flex-col h-full">
-            <ConfirmModal
-                isOpen={showConfirmModal}
-                onClose={() => setShowConfirmModal(false)}
-                onConfirm={toggleFavorite}
-                title="¿Quitar de favoritos?"
-                message="Esta canción se quitará de tu lista de favoritos."
-                confirmText="Quitar"
-                cancelText="Cancelar"
-                variant="danger"
-            />
-
+            {/* ... Modal ... */}
+            {/* ... Visualizer ... */}
             <div className="bg-indigo-900 rounded-3xl p-8 mb-6 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden shadow-xl shadow-indigo-500/20">
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-400 via-indigo-900 to-indigo-950"></div>
                 <div className={`audio-wave ${isPlaying ? 'opacity-100' : 'opacity-30'}`}>{[...Array(10)].map((_, i) => (<div key={i} className="audio-bar" style={{ animationDelay: `${i * 0.1}s` }}></div>))}</div>
-                <div className="mt-8 text-center relative z-10"><h2 className="text-white text-2xl font-bold mb-2">{song.title}</h2><div className="flex flex-wrap justify-center gap-2">{song.tags && Object.values(song.tags).map((tag, idx) => (<span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-white/80 text-xs backdrop-blur-sm">{tag}</span>))}</div></div>
+                <div className="mt-8 text-center relative z-10">
+                    <h2 className="text-white text-2xl font-bold mb-2">{song.title}</h2>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        {song.tags && typeof song.tags === 'object' && Object.values(song.tags).map((tag, idx) => (
+                            <span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-white/80 text-xs backdrop-blur-sm">{tag}</span>
+                        ))}
+                    </div>
+                </div>
             </div>
             <div className="mb-8">
                 <audio
@@ -181,12 +204,15 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
                     src={audioUrl}
                     crossOrigin="anonymous"
                     onTimeUpdate={handleTimeUpdate}
+                    onError={handleAudioError}
                     onEnded={() => {
                         setIsPlaying(false);
-                        if (hasNext) handleNext(); // Auto-advance
+                        if (hasNext) {
+                            // Pass "false" to indicate we DO NOT want auto-play next
+                            onNavigate(currentIndex + 1, false);
+                        }
                     }}
                     onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
-                    autoPlay
                 />
 
                 {/* Time labels */}
@@ -212,7 +238,11 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
                 </div>
 
                 <div className="flex items-center justify-between px-4">
-                    <button onClick={handleFavoriteClick} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
+                    {allowFavorites ? (
+                        <button onClick={handleFavoriteClick} className={`p-3 rounded-full transition-colors ${isFavorite ? 'text-secondary bg-pink-50' : 'text-slate-400 hover:bg-slate-100'}`}><Heart size={24} fill={isFavorite ? "currentColor" : "none"} /></button>
+                    ) : (
+                        <div className="w-12 h-12" /> // Spacer to keep alignment
+                    )}
 
                     <div className="flex items-center gap-4">
                         <button
@@ -240,9 +270,11 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
                 </div>
             </div>
 
-            <div className="mb-6">
-                <AudioRecorder audioRef={audioRef} autoStart={autoRecord} song={song} />
-            </div>
+            {showStudio && (
+                <div className="mb-6">
+                    <AudioRecorder audioRef={audioRef} autoStart={autoRecord} song={song} />
+                </div>
+            )}
 
             {song.lyrics && <Card className="flex-1 overflow-y-auto mb-6 bg-slate-50 border-none"><h3 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">Letra</h3><p className="text-slate-700 whitespace-pre-line leading-relaxed text-lg font-medium">{song.lyrics}</p></Card>}
         </div >

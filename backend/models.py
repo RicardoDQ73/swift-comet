@@ -77,3 +77,40 @@ class Favorite(db.Model):
 
     def __repr__(self):
         return f'<Favorite User:{self.user_id} Song:{self.song_id}>'
+
+class Event(db.Model):
+    """
+    Modelo de Evento (Lista de Reproducción Compartida).
+    """
+    __tablename__ = 'events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relación: Un evento tiene muchas canciones, si se borra evento se borran entradas
+    songs = db.relationship('EventSong', backref='event', lazy=True, cascade="all, delete-orphan")
+    # Relación: Saber quién creó el evento
+    creator = db.relationship('User', backref='created_events', foreign_keys=[created_by])
+
+class EventSong(db.Model):
+    """
+    Tabla intermedia: Canciones dentro de un Evento.
+    Guarda quién agregó la canción.
+    """
+    __tablename__ = 'event_songs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id'), nullable=False)
+    song_id = db.Column(db.Integer, db.ForeignKey('songs.id'), nullable=False)
+    added_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    added_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    order = db.Column(db.Integer, default=0)
+
+    # Relaciones
+    song = db.relationship('Song') # Acceso a datos de la canción
+    user = db.relationship('User', foreign_keys=[added_by]) # Quién la subió

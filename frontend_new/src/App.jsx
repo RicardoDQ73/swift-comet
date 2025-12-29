@@ -9,7 +9,9 @@ import Favorites from './pages/Favorites';
 import History from './pages/History';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
-import KaraokeHub from './pages/KaraokeHub'; // New Import
+import KaraokeHub from './pages/KaraokeHub';
+import EventsDashboard from './pages/EventsDashboard';
+import EventDetails from './pages/EventDetails';
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,7 +37,9 @@ function App() {
           <Route path="favorites" element={<Favorites />} />
           <Route path="history" element={<History />} />
           <Route path="profile" element={<Profile />} />
-          <Route path="karaoke" element={<KaraokeHub />} /> {/* New Route */}
+          <Route path="karaoke" element={<KaraokeHub />} />
+          <Route path="events" element={<EventsDashboard />} />
+          <Route path="events/:id" element={<EventDetails />} />
           <Route path="admin" element={<AdminDashboard />} />
         </Route>
 

@@ -9,6 +9,8 @@ const AdminDashboard = () => {
     const [archived, setArchived] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
+    const [newUser, setNewUser] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'docente', grade_level: '' });
     const [activeTab, setActiveTab] = useState('users');
 
     // Unified Modal State
@@ -114,6 +116,24 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleCreateUser = async (e) => {
+        e.preventDefault();
+        if (newUser.password !== newUser.confirmPassword) {
+            alert("Las contraseñas no coinciden");
+            return;
+        }
+        try {
+            const res = await api.post('/admin/users', newUser);
+            setUsers([...users, { ...res.data.user, joined_at: new Date().toISOString() }]); // Optimistic add user
+            setIsCreatingUser(false);
+            setNewUser({ name: '', email: '', password: '', confirmPassword: '', role: 'docente', grade_level: '' }); // Reset form
+            alert("Usuario creado correctamente");
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.error || 'Error al crear usuario');
+        }
+    };
+
     // --- Modal Content Helper ---
 
     const getModalContent = () => {
@@ -201,6 +221,111 @@ const AdminDashboard = () => {
                 <>
                     {activeTab === 'users' && (
                         <div className="grid gap-4">
+                            {!isCreatingUser ? (
+                                <button
+                                    onClick={() => setIsCreatingUser(true)}
+                                    className="mb-2 bg-primary text-white py-3 px-4 rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Users size={20} /> Añadir Nuevo Usuario
+                                </button>
+                            ) : (
+                                <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-4 animate-in slide-in-from-top-2">
+                                    <h3 className="font-bold text-indigo-900 mb-3">Nuevo Usuario</h3>
+                                    <form onSubmit={handleCreateUser} className="grid gap-4">
+                                        {/* Nombre */}
+                                        <div className="grid gap-1">
+                                            <label className="text-xs font-semibold text-slate-500 uppercase">Nombre Completo</label>
+                                            <input
+                                                className="border p-2.5 rounded-lg w-full"
+                                                placeholder="Ej: Juan Pérez"
+                                                required
+                                                value={newUser.name}
+                                                onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                                            />
+                                        </div>
+
+                                        {/* Correo */}
+                                        <div className="grid gap-1">
+                                            <label className="text-xs font-semibold text-slate-500 uppercase">Correo Electrónico</label>
+                                            <input
+                                                className="border p-2.5 rounded-lg w-full"
+                                                placeholder="ejemplo@correo.com"
+                                                type="email"
+                                                required
+                                                value={newUser.email}
+                                                onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                                            />
+                                        </div>
+
+                                        {/* Contraseñas */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="grid gap-1">
+                                                <label className="text-xs font-semibold text-slate-500 uppercase">Contraseña</label>
+                                                <input
+                                                    className="border p-2.5 rounded-lg w-full"
+                                                    placeholder="******"
+                                                    type="password"
+                                                    required
+                                                    value={newUser.password}
+                                                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="grid gap-1">
+                                                <label className="text-xs font-semibold text-slate-500 uppercase">Confirmar Contraseña</label>
+                                                <input
+                                                    className="border p-2.5 rounded-lg w-full"
+                                                    placeholder="******"
+                                                    type="password"
+                                                    required
+                                                    value={newUser.confirmPassword}
+                                                    onChange={e => setNewUser({ ...newUser, confirmPassword: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Roles y Grados */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="grid gap-1">
+                                                <label className="text-xs font-semibold text-slate-500 uppercase">Rol</label>
+                                                <select
+                                                    className="border p-2.5 rounded-lg w-full"
+                                                    value={newUser.role}
+                                                    onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                                                >
+                                                    <option value="docente">Docente</option>
+                                                    <option value="admin">Administrador</option>
+                                                </select>
+                                            </div>
+                                            <div className="grid gap-1">
+                                                <label className="text-xs font-semibold text-slate-500 uppercase">Grado (Opcional)</label>
+                                                <select
+                                                    className="border p-2.5 rounded-lg w-full"
+                                                    value={newUser.grade_level}
+                                                    onChange={e => setNewUser({ ...newUser, grade_level: e.target.value })}
+                                                >
+                                                    <option value="">-- Seleccionar --</option>
+                                                    <option value="3 años">3 años</option>
+                                                    <option value="4 años">4 años</option>
+                                                    <option value="5 años">5 años</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <button type="submit" className="flex-1 bg-green-500 text-white p-2 rounded-lg font-bold hover:bg-green-600 transition-colors">
+                                                Guardar Usuario
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsCreatingUser(false)}
+                                                className="px-4 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
+
                             {users.map(user => (
                                 <div key={user.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
                                     {editingUser?.id === user.id ? (

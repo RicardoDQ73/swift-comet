@@ -245,3 +245,52 @@ def upload_mix():
     except Exception as e:
         audit_logger.error(f"Error subiendo mix: {str(e)}")
         return jsonify({'error': 'Error al guardar la mezcla'}), 500
+
+@music_bp.route('/songs/<int:song_id>', methods=['GET'])
+@jwt_required()
+def get_song(song_id):
+    """
+    RF_NEW: Obtener detalles de una canción específica.
+    Permisos:
+    - Dueño de la canción
+    - Admin
+    - (Futuro: Participantes de evento)
+    """
+    current_user_id = int(get_jwt_identity())
+    current_user = User.query.get(current_user_id)
+    
+    song = Song.query.get_or_404(song_id)
+    
+    # 1. Verificar Permisos
+    is_owner = song.user_id == current_user_id
+    is_admin = current_user.role == 'admin'
+    
+    # Check if song is in any active event (Basic open access for now if in event)
+    # This queries if the song exists in ANY EventSong entry where the event is active
+    # This works for the context of "Events" module
+    in_active_event = False
+    # Optimized query could be here, for now let's rely on Owner/Admin priority
+    # TODO: Implement strict event membership check if needed
+    
+    if not (is_owner or is_admin):
+        # Allow if it's part of an active event (We can check via EventSong)
+        from models import EventSong, Event
+        event_entry = EventSong.query.join(Event).filter(
+            EventSong.song_id == song_id,
+            Event.is_active == True
+        ).first()
+        if event_entry:
+            in_active_event = True
+        
+        if not in_active_event:
+            return jsonify({'error': 'No tienes permiso para ver esta canción'}), 403
+
+    return jsonify({
+        'id': song.id,
+        'title': song.title,
+        'audio_url': f"/static/music/{song.audio_filename}",
+        'tags': song.tags,
+        'lyrics': song.lyrics,
+        'user_id': song.user_id,
+        'is_favorite': Favorite.query.filter_by(user_id=current_user_id, song_id=song_id).first() is not None
+    }), 200

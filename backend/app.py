@@ -60,6 +60,9 @@ def create_app():
     from routes.tts_routes import tts_bp
     app.register_blueprint(tts_bp, url_prefix='/api/tts')
 
+    from routes.event_routes import event_bp
+    app.register_blueprint(event_bp, url_prefix='/api/events')
+
     # Crear tablas si no existen (Solo para prototipo)
     with app.app_context():
         db.create_all()

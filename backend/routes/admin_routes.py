@@ -5,6 +5,7 @@ from utils.logger import audit_logger
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
+from routes.auth_routes import bcrypt
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -42,6 +43,52 @@ def list_users():
             'joined_at': u.created_at.isoformat()
         })
     return jsonify(results), 200
+
+@admin_bp.route('/users', methods=['POST'])
+@jwt_required()
+def create_user():
+    """RF_NEW: Crear usuario desde Admin"""
+    if not check_admin():
+        return jsonify({'error': 'Acceso denegado'}), 403
+    
+    data = request.get_json()
+    
+    # Validaciones
+    if not data or not data.get('email') or not data.get('password') or not data.get('name'):
+        return jsonify({'error': 'Faltan datos obligatorios'}), 400
+        
+    # Verificar unicidad
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'El correo ya está registrado'}), 409
+        
+    # Crear hash
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+    
+    new_user = User(
+        name=data['name'],
+        email=data['email'],
+        password_hash=hashed_password,
+        grade_level=data.get('grade_level'),
+        role=data.get('role', 'docente')
+    )
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        audit_logger.info(f"ADMIN creó usuario: {new_user.email}")
+        return jsonify({
+            'message': 'Usuario creado exitosamente',
+            'user': {
+                'id': new_user.id,
+                'name': new_user.name,
+                'email': new_user.email,
+                'role': new_user.role
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        audit_logger.error(f"Error creando usuario: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
 @jwt_required()

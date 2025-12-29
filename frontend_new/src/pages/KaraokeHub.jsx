@@ -29,7 +29,7 @@ const KaraokeHub = () => {
 
     const handleSing = (song) => {
         // Navegar al reproductor con flag 'autoRecord'
-        navigate(`/player/${song.id}`, { state: { autoRecord: true, from: 'karaoke' } });
+        navigate(`/player/${song.id}`, { state: { autoRecord: false, from: 'karaoke' } });
     };
 
     return (

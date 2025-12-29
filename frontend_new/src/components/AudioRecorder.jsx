@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Download, Play, Pause, Trash2, Settings, Volume2, Mic as MicIcon, Loader, Heart } from 'lucide-react';
 import { audioBufferToWav } from '../utils/audioUtils';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import ConfirmModal from './ui/ConfirmModal';
 
 const AudioRecorder = ({ audioRef, autoStart = false, song = null }) => {
     // States
@@ -24,6 +26,9 @@ const AudioRecorder = ({ audioRef, autoStart = false, song = null }) => {
     const [musicVolume, setMusicVolume] = useState(0.5);
     const [micVolume, setMicVolume] = useState(1.0);
     const [showSettings, setShowSettings] = useState(true);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+    const navigate = useNavigate();
 
     // Refs
     const mediaRecorderRef = useRef(null);
@@ -307,7 +312,7 @@ const AudioRecorder = ({ audioRef, autoStart = false, song = null }) => {
                     'Content-Type': 'multipart/form-data',
                 },
             });
-            alert("¡Mezcla guardada en favoritos exitosamente! 🌟");
+            setShowSuccessModal(true); // Trigger custom modal instead of alert
 
         } catch (err) {
             console.error(err);
@@ -332,6 +337,22 @@ const AudioRecorder = ({ audioRef, autoStart = false, song = null }) => {
 
     return (
         <div id="recorder-section" className="w-full bg-slate-50 rounded-xl p-4 border border-slate-200 relative overflow-hidden transition-all">
+            <ConfirmModal
+                isOpen={showSuccessModal}
+                onClose={() => {
+                    setShowSuccessModal(false);
+                    navigate('/favorites'); // Redirect on close/confirm
+                }}
+                onConfirm={() => {
+                    setShowSuccessModal(false);
+                    navigate('/favorites'); // Redirect on close/confirm
+                }}
+                title="¡Guardado Exitoso! 🌟"
+                message="Tu mezcla se ha guardado correctamente en tus favoritos."
+                confirmText="Ver Favoritos"
+                cancelText={null} // Hide cancel button
+                variant="success"
+            />
             {isCountingDown && (
                 <div className="absolute inset-0 bg-indigo-900/90 z-50 flex items-center justify-center backdrop-blur-sm">
                     <div className="text-9xl font-black text-white animate-bounce">{count}</div>
