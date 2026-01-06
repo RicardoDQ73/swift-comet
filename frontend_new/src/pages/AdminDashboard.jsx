@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Trash2, Edit2, Activity, Save, X, Archive, RefreshCw } from 'lucide-react';
+import { Users, Trash2, Edit2, Activity, Save, X, Archive, RefreshCw, Mic, Settings } from 'lucide-react';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import api from '../services/api';
 
@@ -211,6 +211,13 @@ const AdminDashboard = () => {
                         title="Papelera / Archivo"
                     >
                         <Archive size={20} />
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('settings')}
+                        className={`p-2 rounded-xl transition-colors ${activeTab === 'settings' ? 'bg-pink-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                        title="Configuración"
+                    >
+                        <Settings size={20} />
                     </button>
                 </div>
             </div>
@@ -460,6 +467,71 @@ const AdminDashboard = () => {
                                     ))}
                                 </ul>
                             )}
+                        </div>
+                    )}
+                    {activeTab === 'settings' && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 animate-in fade-in duration-300">
+                            <h3 className="font-bold mb-6 text-slate-800 flex items-center gap-2 text-xl">
+                                <Settings size={24} className="text-slate-400" /> Configuración del Sistema
+                            </h3>
+
+                            {/* Módulo de Voz del Sistema */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                                <div className="flex items-start sm:items-center gap-4 mb-6 flex-col sm:flex-row">
+                                    <div className="bg-pink-100 p-3 rounded-xl min-w-max">
+                                        <Mic className="text-pink-600" size={24} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-slate-800">Voz de la IA (Global)</h2>
+                                        <p className="text-slate-500 text-sm">
+                                            Sube un archivo de audio (.mp3) que servirá como referencia de voz para <b>todas</b> las canciones con letra generadas por los usuarios.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-pink-400 hover:bg-pink-50/10 transition-all group cursor-pointer relative">
+                                    <input
+                                        type="file"
+                                        accept=".mp3,.wav"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        onChange={async (e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+
+                                            if (!confirm('⚠️ ¿Estás seguro? Esto cambiará la voz de la IA para TODOS los usuarios de inmediato.')) {
+                                                e.target.value = null;
+                                                return;
+                                            }
+
+                                            const formData = new FormData();
+                                            formData.append('file', file);
+
+                                            try {
+                                                await api.post('/admin/system-voice', formData, {
+                                                    headers: { 'Content-Type': undefined }
+                                                });
+                                                alert('¡Voz del sistema actualizada correctamente! 🎤✨');
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert('Error al subir voz: ' + (err.response?.data?.error || err.message));
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex flex-col items-center gap-3 pointer-events-none">
+                                        <div className="p-4 bg-slate-100 rounded-full group-hover:bg-pink-100 transition-colors">
+                                            <Mic size={32} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-sm font-bold text-slate-700 group-hover:text-pink-600 transition-colors">
+                                                Haz click para subir nueva voz (.mp3)
+                                            </span>
+                                            <span className="text-xs text-slate-400 mt-1 block">
+                                                Recomendado: Audio claro de voz cantando, sin mucha música de fondo.
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </>

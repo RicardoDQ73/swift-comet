@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Music, Heart, Clock, Play, Sparkles } from 'lucide-react';
+import { Music, Heart, Clock, Play, Sparkles, Mic, Calendar, Shield } from 'lucide-react';
 import Card from '../components/ui/Card';
 import api from '../services/api';
 
@@ -34,14 +34,35 @@ const Home = () => {
                         <div className="bg-white/20 p-3 rounded-full"><Sparkles size={32} /></div>
                     </div>
                 </Card>
-                <Card onClick={() => navigate('/favorites')} className="flex flex-col items-center justify-center gap-2 text-center hover:border-secondary/50">
+
+                <Card onClick={() => navigate('/karaoke')} className="col-span-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white border-none shadow-lg shadow-pink-500/30">
+                    <div className="flex items-center justify-between">
+                        <div><h2 className="text-xl font-bold mb-1">Estudio Karaoke</h2><p className="text-pink-100 text-sm">Graba y Canta 🎤</p></div>
+                        <div className="bg-white/20 p-3 rounded-full"><Mic size={32} /></div>
+                    </div>
+                </Card>
+
+                <Card onClick={() => navigate('/events')} className="flex flex-col items-center justify-center gap-2 text-center hover:border-purple-500/50">
+                    <div className="bg-purple-100 p-3 rounded-full text-purple-600"><Calendar size={24} /></div>
+                    <span className="font-medium text-slate-700">Eventos</span>
+                </Card>
+
+                <Card onClick={() => navigate('/favorites')} className="flex flex-col items-center justify-center gap-2 text-center hover:border-pink-500/50">
                     <div className="bg-pink-100 p-3 rounded-full text-secondary"><Heart size={24} /></div>
                     <span className="font-medium text-slate-700">Favoritos</span>
                 </Card>
+
                 <Card onClick={() => navigate('/history')} className="flex flex-col items-center justify-center gap-2 text-center hover:border-blue-500/50">
                     <div className="bg-blue-100 p-3 rounded-full text-blue-600"><Clock size={24} /></div>
                     <span className="font-medium text-slate-700">Historial</span>
                 </Card>
+
+                {user?.role === 'admin' && (
+                    <Card onClick={() => navigate('/admin')} className="flex flex-col items-center justify-center gap-2 text-center hover:border-slate-800/50 border-dashed border-2">
+                        <div className="bg-slate-100 p-3 rounded-full text-slate-700"><Shield size={24} /></div>
+                        <span className="font-medium text-slate-700">Admin</span>
+                    </Card>
+                )}
             </div>
             <h3 className="text-lg font-bold text-slate-800 mb-3">Tu última creación</h3>
             {lastSong ? (

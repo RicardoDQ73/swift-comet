@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wand2, Upload, ChevronDown } from 'lucide-react';
+import { Wand2, Upload, ChevronDown, Mic, Music, Brain, School, Activity } from 'lucide-react';
 import Button from '../components/ui/Button';
+import GenerationLoader from '../components/ui/GenerationLoader';
 
 import api from '../services/api';
 
 const CreateMusic = () => {
     const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState('instrumental'); // 'instrumental' or 'vocal'
+    const [lyrics, setLyrics] = useState('');
     const [prompt, setPrompt] = useState('');
+    const [selectedModeId, setSelectedModeId] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const [selectedTags, setSelectedTags] = useState([]);
@@ -28,196 +32,165 @@ const CreateMusic = () => {
     // Check if user is admin
     const userRole = localStorage.getItem('role');
 
-    const quickIdeas = {
-        instruments: [
-            { label: 'Piano', icon: '🎹' },
-            { label: 'Guitarra', icon: '🎸' },
-            { label: 'Tambor', icon: '🥁' },
-            { label: 'Flauta', icon: '🎺' },
-            { label: 'Violín', icon: '🎻' },
-        ],
-        activities: [
-            { label: 'Matemática', icon: '➕' },
-            { label: 'Comunicación', icon: '💬' },
-            { label: 'Ciencia', icon: '🔬' },
-            { label: 'Arte', icon: '🎨' },
-            { label: 'Educación Física', icon: '⚽' },
-        ],
-        rhythm: [
-            { label: 'Rápido', icon: '⚡' },
-            { label: 'Lento', icon: '🐌' },
-            { label: 'Moderado', icon: '🎵' },
-            { label: 'Alegre', icon: '😊' },
-            { label: 'Tranquilo', icon: '😌' },
-        ],
+    const CREATION_MODES = [
+        {
+            id: 'calm',
+            label: 'Concentración',
+            icon: Brain,
+            color: 'bg-indigo-100 text-indigo-700',
+            description: 'Música calmada para dibujar y relajarse.',
+            prompt: "Genera una pista de música de fondo instrumental estilo 'Lo-fi suave para preescolar'. La atmósfera debe ser calmada, cálida, segura y muy relajante, diseñada para que niños de 3 a 5 años se concentren en tareas tranquilas como dibujar. Usa un tempo lento (alrededor de 60-70 BPM). Instrumentación sugerida: piano eléctrico Rhodes muy suave, una guitarra acústica punteada con delicadeza, y una percusión minimalista y apagada (sin ruidos fuertes de platillos). Puedes añadir sonidos de fondo casi imperceptibles de naturaleza tranquila (como pajaritos muy lejanos o brisa suave). La melodía debe ser simple, repetitiva y ondulante, sin cambios bruscos de volumen. Sin voces."
+        },
+        {
+            id: 'teach',
+            label: 'Enseñar',
+            icon: School,
+            color: 'bg-green-100 text-green-700',
+            description: 'Ritmos claros para rutinas y atención.',
+            prompt: "Crea una canción instrumental alegre, brillante y acogedora para un aula de niños de 3 a 5 años. El estilo debe ser de 'canción de ronda infantil' o 'música de programa educativo preescolar'. El ritmo debe ser muy claro, sencillo y marcado (compás de 4/4, tempo medio-alegre alrededor de 100 BPM), ideal para que los niños puedan aplaudir o marchar sentados al ritmo. Usa instrumentos acústicos amigables: un piano saltarín (bouncy piano), una flauta dulce o xilófono llevando la melodía principal, y percusión ligera como panderetas y palmas rítmicas. La melodía debe ser pegajosa, juguetona y fácil de tararear, con una estructura clara que invite a prestar atención al maestro. Sin letra."
+        },
+        {
+            id: 'active',
+            label: 'Actividad Física',
+            icon: Activity,
+            color: 'bg-orange-100 text-orange-700',
+            description: 'Alta energía para baile y movimiento.',
+            prompt: "Genera una pista de baile instrumental de alta energía y muy divertida para niños pequeños (3-5 años). El tempo debe ser rápido y motivador (alrededor de 120-130 BPM), diseñado específicamente para saltar, correr y hacer movimientos grandes. El estilo debe ser 'pop infantil electrónico' o 'música de circo moderna y acelerada'. Usa sintetizadores brillantes y juguetones (no agresivos), un bajo muy rítmico que invite a rebotar, y una batería con mucha energía. Incluye efectos de sonido divertidos y tontos de forma esporádica (como sonidos de 'boing', silbatos de juguete, o risas de bebé sampleadas) para mantener el interés y la sorpresa. La sensación general debe ser de pura alegría, movimiento tonto y celebración. Sin letra."
+        }
+    ];
+
+    const handleModeSelect = (modeId) => {
+        if (selectedModeId === modeId) {
+            // Deselect if already active
+            setSelectedModeId(null);
+        } else {
+            setSelectedModeId(modeId);
+            // Don't clear prompt, allow user to add details
+        }
     };
 
     const handleGenerate = async () => {
-        if (!prompt.trim()) return;
+        // Determine effective prompt
+        let finalPrompt = prompt;
+        if (selectedModeId) {
+            const mode = CREATION_MODES.find(m => m.id === selectedModeId);
+            // Combine Mode Prompt (Style) + User Input (Topic/Details)
+            if (mode) finalPrompt = `${mode.prompt}. Detalles adicionales: ${prompt}`;
+        }
+
+        if (!finalPrompt.trim()) return;
         setLoading(true);
         try {
-            const response = await api.post('/music/generate', { prompt });
-            window.location.href = `/player/${response.data.song.id}`;
+            // New Payload structure
+            const payload = {
+                prompt: finalPrompt,
+                model_type: activeTab, // Pass the active mode
+                lyrics: activeTab === 'vocal' ? lyrics : null
+            };
+
+            const response = await api.post('/music/generate', payload, { timeout: 300000 }); // 5 minutes timeout
+            navigate(`/player/${response.data.song.id}`);
         } catch (error) {
             console.error("Error generando:", error);
             const errorMsg = error.response?.data?.error || error.response?.data?.msg || error.message || "Error desconocido";
-            alert(`Hubo un error al generar la música: ${errorMsg}`);
+            alert(`Hubo un error al generar la música: ${errorMsg} `);
         } finally {
             setLoading(false);
         }
     };
 
-    const toggleTag = (tag) => {
-        if (selectedTags.includes(tag)) {
-            // Deseleccionar: quitar del array y del prompt
-            const newTags = selectedTags.filter(t => t !== tag);
-            setSelectedTags(newTags);
-            setPrompt(newTags.join(' '));
-        } else {
-            // Seleccionar: agregar al array y al prompt
-            const newTags = [...selectedTags, tag];
-            setSelectedTags(newTags);
-            setPrompt(newTags.join(' '));
-        }
-    };
-
-    const isSelected = (tag) => selectedTags.includes(tag);
-
-    const handleUpload = async (e) => {
-        e.preventDefault();
-        if (!uploadForm.audioFile) {
-            alert('Por favor selecciona un archivo de audio');
-            return;
-        }
-
-        setUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append('audio_file', uploadForm.audioFile);
-            formData.append('title', uploadForm.title);
-            formData.append('lyrics', uploadForm.lyrics);
-            formData.append('tags', uploadForm.tags);
-
-            const res = await api.post('/admin/upload-song', formData, {
-                headers: { 'Content-Type': undefined }
-            });
-
-            alert('¡Canción subida exitosamente!');
-            setUploadForm({ title: '', lyrics: '', tags: '', audioFile: null });
-            setShowUploadForm(false);
-            // Navegar al reproductor
-            window.location.href = `/player/${res.data.song.id}`;
-        } catch (error) {
-            console.error("Upload error details:", error);
-            let msg = 'Error al subir: ';
-            if (error.response) {
-                // Server responded with a status code outside 2xx
-                msg += `Server Error (${error.response.status}): ` +
-                    (typeof error.response.data === 'string' ? error.response.data :
-                        (error.response.data?.error || JSON.stringify(error.response.data)));
-            } else if (error.request) {
-                // Request made but no response received
-                msg += 'No hubo respuesta del servidor. Verifica tu conexión o si el servidor está activo.';
-            } else {
-                // Error mostly in setting up the request
-                msg += error.message;
-            }
-            alert(msg);
-        } finally {
-            setUploading(false);
-        }
-    };
+    // ... existing toggleTag ...
 
     return (
         <div className="pb-20">
-            <div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Estudio Mágico ✨</h1><p className="text-slate-500">Describe la música que imaginas</p></div>
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col items-center gap-6">
-                <div className="w-full"><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Escribe aquí tu idea (ej: Piano alegre...)" className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700" rows="3" /></div>
-            </div>
+            {loading && <GenerationLoader />}
+            <div className="mb-6"><h1 className="text-2xl font-bold text-slate-900">Estudio Mágico ✨</h1><p className="text-slate-500">Crea música con IA</p></div>
 
-            {/* Collapsible Quick Ideas */}
-            <div className="mb-4">
+            {/* Mode Selection Tabs */}
+            <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
                 <button
-                    onClick={() => setShowQuickIdeas(!showQuickIdeas)}
-                    className="w-full py-4 px-5 bg-white border-2 border-indigo-200 hover:border-indigo-300 rounded-2xl flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
+                    onClick={() => setActiveTab('instrumental')}
+                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'instrumental' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                            <span className="text-xl">💡</span>
-                        </div>
-                        <span className="font-semibold text-slate-800">Ideas Rápidas</span>
-                    </div>
-                    <ChevronDown size={22} className={`transition-transform text-indigo-600 ${showQuickIdeas ? 'rotate-180' : ''}`} />
+                    <Wand2 size={18} /> Melodía (Fondo)
+                </button>
+                <button
+                    onClick={() => setActiveTab('vocal')}
+                    className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'vocal' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                >
+                    <Mic size={18} /> Canción con Voz
                 </button>
             </div>
 
-            {/* Categorías de Ideas Rápidas */}
-            {showQuickIdeas && (
-                <div className="mb-8 space-y-6 animate-in fade-in duration-200">
-                    {/* Instrumentos */}
-                    <div>
-                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                            <span>🎼</span> Instrumentos
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                            {quickIdeas.instruments.map((item) => (
-                                <button
-                                    key={item.label}
-                                    onClick={() => toggleTag(item.label)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-blue-600 text-white shadow-md scale-105'
-                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                        }`}
-                                >
-                                    {item.icon} {item.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Actividades */}
-                    <div>
-                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                            <span>📚</span> Actividad a Realizar
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                            {quickIdeas.activities.map((item) => (
-                                <button
-                                    key={item.label}
-                                    onClick={() => toggleTag(item.label)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-green-600 text-white shadow-md scale-105'
-                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        }`}
-                                >
-                                    {item.icon} {item.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Ritmo */}
-                    <div>
-                        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                            <span>🎶</span> Ritmo y Estilo
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                            {quickIdeas.rhythm.map((item) => (
-                                <button
-                                    key={item.label}
-                                    onClick={() => toggleTag(item.label)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected(item.label)
-                                        ? 'bg-purple-600 text-white shadow-md scale-105'
-                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                                        }`}
-                                >
-                                    {item.icon} {item.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col items-center gap-6 animate-in fade-in duration-300">
+                <div className="w-full">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                        {activeTab === 'vocal' ? 'Estilo Musical / Vibe' : (selectedModeId ? 'Detalles adicionales (Opcional)' : 'Describe tu idea')}
+                    </label>
+                    <textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder={selectedModeId ? "Ej: Sobre dinosaurios, números del 1 al 10..." : (activeTab === 'vocal' ? "Ej: Pop alegre tipo Disney, voz femenina dulce..." : "Ej: Piano alegre para clase de matemáticas...")}
+                        className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-primary resize-none text-slate-700"
+                        rows="3"
+                    />
                 </div>
-            )}
+
+                {selectedModeId && (
+                    <div className="w-full bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center gap-3">
+                        <div className="bg-indigo-100 p-2 rounded-lg">
+                            <Wand2 size={24} className="text-indigo-600" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-indigo-900">Modo Activado: {CREATION_MODES.find(m => m.id === selectedModeId)?.label}</h4>
+                            <p className="text-sm text-indigo-700">Prompt optimizado listo para usar. Haz clic en "Generar" para empezar.</p>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'vocal' && (
+                    <div className="w-full animate-in slide-in-from-top-2 duration-300">
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Letra de la Canción</label>
+                        <textarea
+                            value={lyrics}
+                            onChange={(e) => setLyrics(e.target.value)}
+                            placeholder="Escribe la letra aquí... (La IA la cantará)"
+                            className="w-full p-4 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-pink-500 resize-none text-slate-700"
+                            rows="4"
+                        />
+                        <p className="text-xs text-slate-400 mt-2">✨ Tip: Escribe párrafos cortos para mejores resultados.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Creative Modes Selection */}
+            <div className="mb-8">
+                <h3 className="block text-sm font-bold text-slate-700 mb-3">Selecciona un Modo (Plantilla)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {CREATION_MODES.map((mode) => {
+                        const isActive = selectedModeId === mode.id;
+                        return (
+                            <button
+                                key={mode.id}
+                                onClick={() => handleModeSelect(mode.id)}
+                                className={`p-4 rounded-xl border transition-all text-left group relative ${isActive
+                                    ? 'bg-indigo-50 border-indigo-500 shadow-md ring-2 ring-indigo-200'
+                                    : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100'
+                                    }`}
+                            >
+                                {isActive && <div className="absolute top-3 right-3 w-3 h-3 bg-indigo-500 rounded-full animate-bounce" />}
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${mode.color}`}>
+                                    <mode.icon size={20} />
+                                </div>
+                                <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{mode.label}</h4>
+                                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{mode.description}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
 
             {/* Admin Upload Button */}
             {userRole === 'admin' && (
@@ -298,7 +271,9 @@ const CreateMusic = () => {
                 </div>
             )}
 
-            <Button fullWidth onClick={handleGenerate} isLoading={loading} disabled={!prompt} className="shadow-xl shadow-primary/20">Generar Música 🎵</Button>
+            <Button fullWidth onClick={handleGenerate} isLoading={loading} disabled={!prompt && !selectedModeId} className={`shadow-xl ${activeTab === 'vocal' ? 'shadow-pink-500/20 bg-pink-600 hover:bg-pink-700' : 'shadow-primary/20'}`}>
+                {activeTab === 'vocal' ? 'Generar Canción Completa 🎤' : (selectedModeId ? 'Generar con este Modo 🎵' : 'Generar Melodía 🎵')}
+            </Button>
         </div>
     );
 };

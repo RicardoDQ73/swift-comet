@@ -15,6 +15,8 @@ const PlayerPage = () => {
 
     useEffect(() => {
         const fetchSong = async () => {
+            setLoading(true);
+            setSong(null);
             try {
                 const sourceContext = location.state?.from;
                 let found = null;
@@ -46,7 +48,8 @@ const PlayerPage = () => {
                                 id: es.song_id,
                                 title: es.title,
                                 audio_url: es.audio_url,
-                                tags: es.tags
+                                tags: es.tags,
+                                user_id: es.user_id // Pass user_id for permission checks
                             }));
                         } else {
                             console.warn("Event songs format incorrect", eventRes.data);
@@ -164,6 +167,9 @@ const PlayerPage = () => {
         }
     };
 
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const canEdit = song ? (user.role === 'admin' || user.id === song.user_id) : false;
+
     return (
         <div className="pb-20 min-h-screen bg-white">
             <div className="p-4 flex items-center gap-4 sticky top-0 bg-white z-10">
@@ -181,6 +187,7 @@ const PlayerPage = () => {
                         autoRecord={location.state?.autoRecord}
                         showStudio={location.state?.from === 'karaoke'} // Only show studio if coming from KaraokeHub
                         allowFavorites={location.state?.from !== 'event'} // Disable favorites if coming from an event
+                        canEdit={canEdit}
                     />
                 </SimpleErrorBoundary>
             </div>

@@ -317,3 +317,45 @@ def restore_song(song_id):
     
     audit_logger.info(f"ADMIN restauró canción ID {song_id}")
     return jsonify({'message': 'Canción restaurada exitosamente'}), 200
+
+@admin_bp.route('/system-voice', methods=['POST'])
+@jwt_required()
+def upload_system_voice():
+    """
+    Subir/Reemplazar la voz global del sistema para Minimax.
+    Guarda el archivo como 'system_voice.mp3' en una ruta fija.
+    """
+    print(f"DEBUG: Entering system-voice upload. User: {get_jwt_identity()}")
+    
+    # 1. Verificar Admin
+    if not check_admin():
+        return jsonify({'error': 'Acceso denegado'}), 403
+        
+    # 2. Verificar Archivo
+    if 'file' not in request.files:
+        print("DEBUG: No file part in request")
+        return jsonify({'error': 'No se envió archivo'}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+        
+    try:
+        # 3. Asegurar directorio
+        from flask import current_app
+        sys_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'system')
+        if not os.path.exists(sys_folder):
+            os.makedirs(sys_folder)
+            
+        # 4. Guardar (Sobrescribir)
+        file_path = os.path.join(sys_folder, 'system_voice.mp3')
+        file.save(file_path)
+        print(f"DEBUG: System voice saved to {file_path}")
+        
+        audit_logger.info("ADMIN actualizó la Voz del Sistema")
+        return jsonify({'message': 'Voz del sistema actualizada correctamente'}), 200
+        
+    except Exception as e:
+        print(f"ERROR uploading system voice: {e}")
+        audit_logger.error(f"Error actualizando voz sistema: {str(e)}")
+        return jsonify({'error': 'Error interno al guardar voz'}), 500

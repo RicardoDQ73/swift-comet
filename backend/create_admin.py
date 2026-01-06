@@ -13,11 +13,15 @@ def create_admin():
         
         if existing:
             print(f"El usuario admin {email} ya existe.")
-            # Opcional: Actualizarlo a admin si no lo es
-            if existing.role != 'admin':
-                existing.role = 'admin'
-                db.session.commit()
-                print("Se actualizó el rol a 'admin'.")
+            # Actualizar password y rol siempre
+            password = "AdminSecretPassword123!"
+            hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+            
+            existing.password_hash = hashed_password
+            existing.role = 'admin'
+            db.session.commit()
+            print("Se actualizó la contraseña y el rol a 'admin'.")
+            print(f"Password: {password}")
             return
 
         # Crear nuevo admin

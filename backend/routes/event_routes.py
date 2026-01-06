@@ -83,6 +83,7 @@ def get_event_details(event_id):
             'title': song.title,
             'audio_url': f"/static/music/{song.audio_filename}",
             'tags': song.tags,
+            'user_id': song.user_id, # Include original owner ID
             'added_by_name': added_by_user.name,
             'added_by_id': es.added_by,
             'can_delete': (es.added_by == user_id) or (get_current_user_role(user_id) == 'admin')

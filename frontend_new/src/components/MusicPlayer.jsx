@@ -1,29 +1,34 @@
-
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Download, Heart, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, Download, Heart, SkipBack, SkipForward, Edit2 } from 'lucide-react';
 import Card from './ui/Card';
 import ConfirmModal from './ui/ConfirmModal';
+import EditTitleModal from './ui/EditTitleModal';
 import AudioRecorder from './AudioRecorder';
 import api from '../services/api';
 
-const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false, autoRecord = false, showStudio = false, allowFavorites = true }) => {
+const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuffle = false, autoRecord = false, showStudio = false, allowFavorites = true, canEdit = false }) => {
     const audioRef = useRef(null);
     const progressBarRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [isFavorite, setIsFavorite] = useState(song.is_favorite);
+    const [displayTitle, setDisplayTitle] = useState(song.title); // Local state for immediate update
     const [isDragging, setIsDragging] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
 
-    // Construct full audio URL with backend base URL
+    // Update display title when song prop changes
+    useEffect(() => {
+        setDisplayTitle(song.title);
+    }, [song]);
+
     const getAudioUrl = () => {
         if (!song || !song.audio_url) return '';
         if (song.audio_url.startsWith('http')) {
-            return song.audio_url; // Already absolute
+            return song.audio_url;
         }
-        // Get backend base URL from api service
         const hostname = window.location.hostname;
         const backendUrl = hostname !== 'localhost'
             ? `http://${hostname}:5000`
@@ -43,11 +48,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
         }
     }, [isPlaying]);
 
-    // Reset playing state when song changes
     useEffect(() => {
-        // Check explicit autoPlay prop first (passed from navigation mainly for "Next" logic)
-        // If autoPlay is specifically FALSE, respect it.
-        // Otherwise, default to !showStudio (original logic)
         if (typeof song.autoPlay === 'boolean') {
             setIsPlaying(song.autoPlay);
         } else {
@@ -112,10 +113,8 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
 
     const handleFavoriteClick = () => {
         if (isFavorite) {
-            // If removing from favorites, show confirmation
             setShowConfirmModal(true);
         } else {
-            // If adding to favorites, do it directly
             toggleFavorite();
         }
     };
@@ -130,7 +129,18 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
             setIsFavorite(!isFavorite);
         } catch (error) {
             console.error("Error toggling favorite", error);
-            // alert("Error al actualizar favoritos");
+        }
+    };
+
+    const handleRename = async (newTitle) => {
+        try {
+            await api.put(`/music/songs/${song.id}`, { title: newTitle });
+            setDisplayTitle(newTitle); // Optimistic update
+            setShowEditModal(false);
+            // Optionally notify parent or context, but local state is fine for now
+        } catch (error) {
+            console.error("Error renaming song", error);
+            alert("Error al renombrar la canción");
         }
     };
 
@@ -141,7 +151,7 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${song.title}.mp3`;
+            a.download = `${displayTitle}.mp3`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -156,7 +166,6 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
     };
 
     const handleNext = () => {
-        // Allow next if shuffle is on OR if we are not at end
         if (onNavigate && (isShuffle || currentIndex < playlist.length - 1)) {
             onNavigate(currentIndex + 1);
         }
@@ -167,30 +176,43 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
 
     const handleAudioError = (e) => {
         console.error("Audio playback error:", e);
-        const error = e.target.error;
-        let message = "Error desconocido de reproducción";
-        if (error) {
-            switch (error.code) {
-                case error.MEDIA_ERR_ABORTED: message = "Reproducción abortada"; break;
-                case error.MEDIA_ERR_NETWORK: message = "Error de red al cargar audio"; break;
-                case error.MEDIA_ERR_DECODE: message = "Audio corrupto o no soportado"; break;
-                case error.MEDIA_ERR_SRC_NOT_SUPPORTED: message = "Formato de audio no soportado o archivo no encontrado (404)"; break;
-            }
-        }
-        // Only alert if it's not a transient loading issue
-        console.warn(`Playback Error Code ${error?.code}: ${message}`);
-        // alert(`No se pudo reproducir: ${message}`);
     };
 
     return (
         <div className="flex flex-col h-full">
-            {/* ... Modal ... */}
-            {/* ... Visualizer ... */}
+            <EditTitleModal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                onConfirm={handleRename}
+                currentTitle={displayTitle}
+            />
+
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={toggleFavorite}
+                title="¿Quitar de Favoritos?"
+                message="¿Estás seguro de que deseas eliminar esta canción de tus favoritos?"
+                confirmText="Sí, quitar"
+                cancelText="Cancelar"
+            />
+
             <div className="bg-indigo-900 rounded-3xl p-8 mb-6 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden shadow-xl shadow-indigo-500/20">
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-400 via-indigo-900 to-indigo-950"></div>
                 <div className={`audio-wave ${isPlaying ? 'opacity-100' : 'opacity-30'}`}>{[...Array(10)].map((_, i) => (<div key={i} className="audio-bar" style={{ animationDelay: `${i * 0.1}s` }}></div>))}</div>
-                <div className="mt-8 text-center relative z-10">
-                    <h2 className="text-white text-2xl font-bold mb-2">{song.title}</h2>
+                <div className="mt-8 text-center relative z-10 w-full">
+                    <div className="flex items-center justify-center gap-2 mb-2 group">
+                        <h2 className="text-white text-2xl font-bold truncate max-w-[80%]">{displayTitle}</h2>
+                        {allowFavorites && ( // Reuse permission logic: if allows favorites means regular user/owner flow
+                            <button
+                                onClick={() => setShowEditModal(true)}
+                                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white/70 hover:text-white transition-opacity opacity-0 group-hover:opacity-100"
+                                title="Editar nombre"
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                        )}
+                    </div>
                     <div className="flex flex-wrap justify-center gap-2">
                         {song.tags && typeof song.tags === 'object' && Object.values(song.tags).map((tag, idx) => (
                             <span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-white/80 text-xs backdrop-blur-sm">{tag}</span>
@@ -207,8 +229,8 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
                     onError={handleAudioError}
                     onEnded={() => {
                         setIsPlaying(false);
-                        if (hasNext) {
-                            // Pass "false" to indicate we DO NOT want auto-play next
+                        setIsPlaying(false);
+                        if (hasNext && !showStudio) {
                             onNavigate(currentIndex + 1, false);
                         }
                     }}
@@ -245,25 +267,29 @@ const MusicPlayer = ({ song, playlist = [], currentIndex = 0, onNavigate, isShuf
                     )}
 
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={handlePrevious}
-                            disabled={!hasPrevious}
-                            className={`p-2 rounded-full transition-colors ${hasPrevious ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
-                        >
-                            <SkipBack size={28} />
-                        </button>
+                        {!showStudio && (
+                            <button
+                                onClick={handlePrevious}
+                                disabled={!hasPrevious}
+                                className={`p-2 rounded-full transition-colors ${hasPrevious ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
+                            >
+                                <SkipBack size={28} />
+                            </button>
+                        )}
 
                         <button onClick={() => setIsPlaying(!isPlaying)} className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform">
                             {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                         </button>
 
-                        <button
-                            onClick={handleNext}
-                            disabled={!hasNext}
-                            className={`p-2 rounded-full transition-colors ${hasNext ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
-                        >
-                            <SkipForward size={28} />
-                        </button>
+                        {!showStudio && (
+                            <button
+                                onClick={handleNext}
+                                disabled={!hasNext}
+                                className={`p-2 rounded-full transition-colors ${hasNext ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 cursor-not-allowed'}`}
+                            >
+                                <SkipForward size={28} />
+                            </button>
+                        )}
                     </div>
 
                     <button onClick={handleDownload} className="p-3 text-slate-400 hover:text-primary hover:bg-indigo-50 rounded-full transition-colors"><Download size={24} /></button>

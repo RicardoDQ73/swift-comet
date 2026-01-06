@@ -12,7 +12,7 @@ load_dotenv()
 
 # Importamos nuestra configuración y modelos
 from config import Config
-from models import db, Song, Favorite
+from models import db, Song, Favorite, EventSong
 from utils.logger import audit_logger
 
 def create_app():
@@ -86,7 +86,11 @@ def cleanup_history(app):
         for song in expired_songs:
             # Verificar si es favorita (Las favoritas NO se tocan)
             is_fav = Favorite.query.filter_by(song_id=song.id).first()
-            if not is_fav:
+            
+            # Verificar si está en algun evento (Los eventos NO se tocan)
+            in_event = EventSong.query.filter_by(song_id=song.id).first()
+            
+            if not is_fav and not in_event:
                 # SOFT DELETE: Solo marcamos como archivada.
                 # El archivo físico SE MANTIENE por si el admin restaura.
                 song.is_archived = True

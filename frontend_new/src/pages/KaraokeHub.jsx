@@ -16,10 +16,18 @@ const KaraokeHub = () => {
     const fetchSongs = async () => {
         setLoading(true);
         try {
-            // Reusamos endpoint de history pues contiene todas las canciones creadas por IA
-            // Integramos filtro para solo ver GENERATED (ignorar covers)
-            const res = await api.get('/music/history?song_type=GENERATED');
-            setSongs(res.data);
+            // Fetch Favorites instead of History
+            const res = await api.get('/music/favorites');
+
+            // Filter locally:
+            // 1. Must be GENERATED (not covers)
+            // 2. Must be Instrumental (created by MusicGen, check tags)
+            const filtered = res.data.filter(s =>
+                s.song_type === 'GENERATED' &&
+                s.tags?.instrumento === 'IA Instrumental'
+            );
+
+            setSongs(filtered);
         } catch (error) {
             console.error("Error fetching songs for karaoke", error);
         } finally {

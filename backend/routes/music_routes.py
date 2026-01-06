@@ -21,13 +21,16 @@ def generate_music():
     user_id = int(get_jwt_identity())
     data = request.get_json()
     prompt = data.get('prompt')
+    model_type = data.get('model_type', 'instrumental') # 'instrumental' or 'vocal'
+    lyrics = data.get('lyrics')
 
     if not prompt:
         return jsonify({'error': 'El prompt es obligatorio'}), 400
 
     try:
         # 1. Llamar al servicio de IA (Real con Replicate)
-        ai_result = generate_music_real(prompt, duration=10)
+        # Pasamos model_type y lyrics
+        ai_result = generate_music_real(prompt, duration=10, model_type=model_type, lyrics=lyrics)
         
         # 2. Guardar en Base de Datos (Historial)
         new_song = Song(
@@ -59,7 +62,8 @@ def generate_music():
 
     except Exception as e:
         audit_logger.error(f"Error generando música: {str(e)}")
-        return jsonify({'error': 'Error en el motor de IA'}), 500
+        # Devuelve el error real para debugging
+        return jsonify({'error': str(e)}), 500
 
 @music_bp.route('/history', methods=['GET'])
 @jwt_required()
@@ -137,7 +141,7 @@ def get_favorites():
     RF08: Listar Favoritos.
     """
     user_id = int(get_jwt_identity())
-    favorites = Favorite.query.filter_by(user_id=user_id).all()
+    favorites = Favorite.query.filter_by(user_id=user_id).order_by(Favorite.favorited_at.desc()).all()
     
     results = []
     for fav in favorites:
@@ -148,7 +152,8 @@ def get_favorites():
             'tags': s.tags,
             'audio_url': f"/static/music/{s.audio_filename}",
             'favorited_at': fav.favorited_at.isoformat(),
-            'is_favorite': True
+            'is_favorite': True,
+            'song_type': s.song_type
         })
         
     return jsonify(results), 200
@@ -294,3 +299,31 @@ def get_song(song_id):
         'user_id': song.user_id,
         'is_favorite': Favorite.query.filter_by(user_id=current_user_id, song_id=song_id).first() is not None
     }), 200
+
+@music_bp.route('/songs/<int:song_id>', methods=['PUT'])
+@jwt_required()
+def update_song(song_id):
+    """
+    RF_NEW: Actualizar detalles de canción (Título).
+    """
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    song = Song.query.get_or_404(song_id)
+    
+    # Validar permisos: Dueño o Admin
+    if song.user_id != user_id and user.role != 'admin':
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    data = request.get_json()
+    new_title = data.get('title')
+    
+    if not new_title:
+        return jsonify({'error': 'El título no puede estar vacío'}), 400
+        
+    old_title = song.title
+    song.title = new_title
+    db.session.commit()
+    
+    audit_logger.info(f"User {user_id} renombró canción {song_id}: '{old_title}' -> '{new_title}'")
+    
+    return jsonify({'message': 'Canción actualizada', 'title': new_title}), 200
