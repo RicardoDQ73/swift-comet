@@ -45,7 +45,8 @@ def _generate_musicgen(prompt, duration=10):
         "input": {
             "prompt": prompt,
             "duration": duration,
-            "model_version": "large" 
+            "model_version": "large",
+            "output_format": "mp3"
         }
     }
     
@@ -61,47 +62,35 @@ def _generate_minimax(prompt, lyrics):
     if not os.path.exists(sys_voice_path):
         raise Exception("Error: No hay 'Voz del Sistema' configurada. Por favor sube una en el Admin.")
 
-    # 1.5 Buscar o Generar Referencia de Estilo (Bootstrapping)
-    # 1.5 Buscar o Generar Referencia de Estilo (Bootstrapping)
-    # Buscamos mp3 o wav
-    sys_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'system')
-    if not os.path.exists(sys_dir): # Defensive creation
-        os.makedirs(sys_dir)
+    # 1.5 Generar Referencia de Estilo Dinámica (PROD)
+    # En vez de usar siempre el system_style, generamos uno nuevo basado en el prompt del usuario
+    # para que la canción tenga el mood correcto (triste, alegre, rock, etc).
+    print(f"[{time.strftime('%H:%M:%S')}] Generando backing track único para esta canción...")
+    try:
+        # Usamos el prompt del usuario para generar el instrumental
+        # Force upbeat/clean style to ensure good vocal match, or just use user prompt
+        instr_result = _generate_musicgen(prompt, duration=15)
         
-    sys_style_path_mp3 = os.path.join(sys_dir, 'system_style.mp3')
-    sys_style_path_wav = os.path.join(sys_dir, 'system_style.wav')
-    
-    sys_style_path = sys_style_path_mp3 if os.path.exists(sys_style_path_mp3) else (sys_style_path_wav if os.path.exists(sys_style_path_wav) else None)
-
-    # Integrity Check
-    if sys_style_path and os.path.getsize(sys_style_path) < 10000:
-         print(f"[{time.strftime('%H:%M:%S')}] Estilo corrupto. Eliminando...")
-         os.remove(sys_style_path)
-         sys_style_path = None
-    
-    if not sys_style_path:
-        print(f"[{time.strftime('%H:%M:%S')}] No hay Referencia de Estilo. Generando...")
-        try:
-            style_prompt = "Generic pop music backing track, upbeat, drums, bass, synthesizer, no voice, high quality"
-            style_result = _generate_musicgen(style_prompt, duration=15)
-            
-            gen_filename = style_result['filename']
-            gen_ext = gen_filename.split('.')[-1]
-            
-            # Save as system_style.EXT
-            new_style_path = os.path.join(sys_dir, f"system_style.{gen_ext}")
-            source_path = os.path.join(current_app.config['UPLOAD_FOLDER'], gen_filename)
-            
-            import shutil
-            shutil.move(source_path, new_style_path)
-            sys_style_path = new_style_path
-            print(f"[{time.strftime('%H:%M:%S')}] Estilo generado: {sys_style_path}")
-            
-        except Exception as e:
-            print(f"[{time.strftime('%H:%M:%S')}] CRITICAL: Falló bootstrapping: {e}")
-            import traceback
-            traceback.print_exc()
-            sys_style_path = sys_voice_path # Fallback
+        gen_filename = instr_result['filename']
+        # Full path to generated instrumental
+        temp_style_path = os.path.join(current_app.config['UPLOAD_FOLDER'], gen_filename)
+        
+        print(f"[{time.strftime('%H:%M:%S')}] Backing track generado: {gen_filename}")
+        
+    except Exception as e:
+        print(f"[{time.strftime('%H:%M:%S')}] WARNING: Falló generación dinámica de estilo: {e}")
+        # Fallback to system style if generation fails
+        sys_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'system')
+        if not os.path.exists(sys_dir): os.makedirs(sys_dir)
+        
+        sys_style_path_mp3 = os.path.join(sys_dir, 'system_style.mp3')
+        sys_style_path_wav = os.path.join(sys_dir, 'system_style.wav')
+        temp_style_path = sys_style_path_mp3 if os.path.exists(sys_style_path_mp3) else (sys_style_path_wav if os.path.exists(sys_style_path_wav) else None)
+        
+        if not temp_style_path:
+             # Last resort fallback if no system style exists either
+             print("No system style found, using voice as instrumental ref (bad quality but works)")
+             temp_style_path = sys_voice_path
 
     try:
         # Importar base64
@@ -114,9 +103,9 @@ def _generate_minimax(prompt, lyrics):
             voice_encoded = base64.b64encode(voice_file.read()).decode('utf-8')
             voice_data_uri = f"data:{voice_mime};base64,{voice_encoded}"
 
-        # ESTILO
-        style_mime = "audio/mpeg" if sys_style_path.endswith('.mp3') else "audio/wav"
-        with open(sys_style_path, "rb") as style_file:
+        # ESTILO (Usamos el temp_style_path generado o fallback)
+        style_mime = "audio/mpeg" if temp_style_path.endswith('.mp3') else "audio/wav"
+        with open(temp_style_path, "rb") as style_file:
             style_encoded = base64.b64encode(style_file.read()).decode('utf-8')
             style_data_uri = f"data:{style_mime};base64,{style_encoded}"
 

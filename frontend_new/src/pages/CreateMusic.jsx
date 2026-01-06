@@ -74,8 +74,9 @@ const CreateMusic = () => {
         let finalPrompt = prompt;
         if (selectedModeId) {
             const mode = CREATION_MODES.find(m => m.id === selectedModeId);
-            // Combine Mode Prompt (Style) + User Input (Topic/Details)
-            if (mode) finalPrompt = `${mode.prompt}. Detalles adicionales: ${prompt}`;
+            // Combine User Input (Topic/Details) + Mode Prompt (Style)
+            // User input first ensures it's the primary subject
+            if (mode) finalPrompt = `${prompt} ${mode.prompt}`;
         }
 
         if (!finalPrompt.trim()) return;
